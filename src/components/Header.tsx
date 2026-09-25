@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Zap, Moon, Sun, Users, Calendar, ChevronDown, Check, Clock, HardDrive, FolderCheck } from 'lucide-react';
+import { Search, Plus, Zap, Moon, Sun, Users, Calendar, ChevronDown, Check, Clock, HardDrive, FolderCheck, Globe, Download } from 'lucide-react';
 import { NavModule, UserProfile } from '../types';
 import { adToBs, getTodayIso } from '../lib/nepaliDate';
 

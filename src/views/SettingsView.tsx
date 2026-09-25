@@ -34,7 +34,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onSuccess,
   onError,
   theme,
-  onToggleTheme,
+  onToggleTheme
 }) => {
   const [activeTab, setActiveTab] = useState<'system' | 'workspaces' | 'exports' | 'computer'>('system');
   const [newProfileName, setNewProfileName] = useState('');
@@ -677,120 +677,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Tab: Backup & Multi-Format Exports */}
       {activeTab === 'exports' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Direct Computer Folder Backup */}
-          <div className="lg:col-span-12 rounded-3xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50 p-6 shadow-sm dark:border-indigo-900/40 dark:from-indigo-950/20 dark:via-slate-900 dark:to-slate-900 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm shadow-indigo-600/30">
-                  <HardDrive className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Direct Computer Folder Backup</span>
-                    {folderMeta.isConnected ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Connected
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                        Not connected
-                      </span>
-                    )}
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Connect your device to a local computer folder. The app asks you once to select which folder, then saves all files automatically into domain subfolders.
-                  </p>
-                </div>
-              </div>
-
-              {/* Status and Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2">
-                {folderMeta.isConnected ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={isFolderSyncing}
-                      onClick={handleRunFolderSync}
-                      className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-50 cursor-pointer"
-                    >
-                      <RefreshCw className={`h-3.5 w-3.5 ${isFolderSyncing ? 'animate-spin' : ''}`} />
-                      <span>{isFolderSyncing ? 'Saving Files...' : 'Sync All Files to Folder'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isFolderSyncing}
-                      onClick={handleSelectComputerFolder}
-                      className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
-                    >
-                      Change Folder
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isFolderSyncing}
-                      onClick={handleDisconnectFolder}
-                      className="rounded-xl border border-rose-200 px-2.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer"
-                    >
-                      Disconnect
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleSelectComputerFolder}
-                    disabled={!isFolderApiSupported || isFolderSyncing}
-                    className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-50 cursor-pointer"
-                  >
-                    <FolderCheck className="h-4 w-4" />
-                    <span>Select Computer Folder</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Sync Progress Bar */}
-            {isFolderSyncing && (
-              <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex justify-between text-xs font-medium text-indigo-600 dark:text-indigo-400">
-                  <span className="truncate pr-2">{folderSyncProgress}</span>
-                  <span className="font-mono font-bold">{folderSyncPercent}%</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                  <div
-                    className="h-full rounded-full bg-indigo-600 transition-all duration-200"
-                    style={{ width: `${folderSyncPercent}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Target Folder with Dropdown Menu containing all 12 subfolders */}
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <ComputerSubfoldersViewer
-                targetFolderName={folderMeta.folderName}
-                isFolderConnected={folderMeta.isConnected}
-                lastBackupAt={folderMeta.lastBackupAt}
-                lastFileCount={folderMeta.lastFileCount}
-              />
-            </div>
-
-            {/* Fallback ZIP */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-              <span className="text-slate-500">Need a single portable archive with all subfolders?</span>
-              <button
-                type="button"
-                disabled={isFolderZipping || isFolderSyncing}
-                onClick={handleDownloadZipPackage}
-                className="flex items-center gap-1.5 font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 cursor-pointer"
-              >
-                <Download className="h-3.5 w-3.5" />
-                <span>{isFolderZipping ? 'Generating ZIP...' : 'Download as Multi-Folder .ZIP Package'}</span>
-              </button>
-            </div>
-          </div>
-
           {/* Complete Standalone HTML Application */}
           <div className="lg:col-span-12 rounded-3xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/40 p-6 shadow-sm dark:border-indigo-900/60 dark:from-indigo-950/30 dark:via-slate-900 dark:to-slate-900 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4 dark:border-slate-800">
@@ -812,7 +698,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 shrink-0">
-
                 <button
                   type="button"
                   onClick={handleExportCompleteHtml}

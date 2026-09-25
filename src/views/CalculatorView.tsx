@@ -1,6 +1,25 @@
-import React, { useState } from 'react';
-import { Calculator, Star, History, Copy, ArrowRight } from 'lucide-react';
-import { CALCULATOR_CATALOG, CALC_UNIT_FACTORS, NP_UNITS, calculatorEngine } from '../lib/calculatorEngine';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Calculator,
+  Star,
+  History,
+  Copy,
+  Check,
+  Search,
+  ArrowRightLeft,
+  Trash2,
+  Sparkles,
+  Info,
+  Sliders,
+  RotateCcw
+} from 'lucide-react';
+import {
+  CALCULATOR_CATALOG,
+  CALC_UNIT_FACTORS,
+  NP_UNITS
+} from '../lib/calculatorEngine';
+import { ALL_TOOL_CONFIGS, getToolConfig } from '../lib/calculatorConfigIndex';
+import { InteractiveKeypad } from '../components/InteractiveKeypad';
 import { CalcHistoryItem } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 
@@ -19,224 +38,49 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('quick');
   const [selectedTool, setSelectedTool] = useState<string>('Basic');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [useKeypad, setUseKeypad] = useState(true);
 
-  // Dynamic input fields state
-  const [field1, setField1] = useState('1000');
-  const [field2, setField2] = useState('+');
-  const [field3, setField3] = useState('500');
-  const [field4, setField4] = useState('12');
-  const [unitFrom, setUnitFrom] = useState('m');
-  const [unitTo, setUnitTo] = useState('ft');
+  // Dynamic input values
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [unitFrom, setUnitFrom] = useState<string>('');
+  const [unitTo, setUnitTo] = useState<string>('');
   const [result, setResult] = useState<string>('—');
+  const [copied, setCopied] = useState(false);
 
-  const tools = CALCULATOR_CATALOG[selectedCategory] || [];
+  const currentConfig = useMemo(() => getToolConfig(selectedTool), [selectedTool]);
 
-  const handleSelectTool = (tool: string) => {
-    setSelectedTool(tool);
-    setResult('—');
+  // Set default units and inputs when tool changes
+  useEffect(() => {
+    const config = getToolConfig(selectedTool);
+    const newInputs: Record<string, string> = {};
+    config.fields.forEach((f, idx) => {
+      newInputs[`f${idx + 1}`] = f.default;
+    });
+    setInputs(newInputs);
 
-    // Preset reasonable defaults based on tool
-    if (tool === 'Basic') {
-      setField1('100'); setField2('+'); setField3('25');
-    } else if (tool === 'EMI / Loan') {
-      setField1('500000'); // Principal
-      setField2('8.5'); // Rate %
-      setField3('60'); // Months
-    } else if (tool === 'SIP / Investment') {
-      setField1('5000'); // Monthly
-      setField2('12'); // Annual rate
-      setField3('120'); // Months
-    } else if (tool === 'Gold Value') {
-      setField1('1'); // Tola / grams
-      setField2('120000'); // Rate
-    } else if (tool === 'BMI') {
-      setField1('70'); // kg
-      setField2('1.75'); // metres
-    } else if (tool === 'BMR') {
-      setField1('72'); setField2('178'); setField3('28'); setField4('male');
-    } else if (tool === 'Date Difference') {
-      setField1('2026-01-01'); setField2('2026-12-31');
-    } else if (tool === 'Length') {
-      setField1('10'); setUnitFrom('m'); setUnitTo('ft');
-    } else if (tool === 'Nepal Land') {
-      setField1('1'); setUnitFrom('ropani'); setUnitTo('sq_ft');
+    // Default units for converters
+    if (config.isConverter) {
+      setUnitFrom(config.defaultUnitFrom || 'm');
+      setUnitTo(config.defaultUnitTo || 'ft');
+    } else {
+      setUnitFrom('');
+      setUnitTo('');
     }
-  };
 
+    setResult('—');
+  }, [selectedTool]);
+
+  // Auto-run calculation when inputs change or tool is selected
   const handleCalculate = async () => {
     try {
-      let output: any = '';
+      const config = getToolConfig(selectedTool);
+      const f1 = inputs.f1 ?? config.fields[0]?.default ?? '';
+      const f2 = inputs.f2 ?? config.fields[1]?.default ?? '';
+      const f3 = inputs.f3 ?? config.fields[2]?.default ?? '';
+      const f4 = inputs.f4 ?? config.fields[3]?.default ?? '';
 
-      switch (selectedTool) {
-        case 'Basic':
-          output = calculatorEngine.basic(field1, field2, field3);
-          break;
-        case 'Scientific':
-          output = calculatorEngine.scientific(field1);
-          break;
-        case 'Percentage':
-          output = `${field2}% of ${field1} = ${calculatorEngine.percentage(field1, field2)}`;
-          break;
-        case 'Fraction':
-          output = calculatorEngine.simplifyFraction(field1, field2);
-          break;
-        case 'Ratio':
-          output = calculatorEngine.ratio(field1, field2);
-          break;
-        case 'Average': {
-          const arr = field1.split(',').map(x => Number(x.trim())).filter(Number.isFinite);
-          output = `Average: ${calculatorEngine.average(arr).toFixed(2)}`;
-          break;
-        }
-        case 'Discount':
-          output = calculatorEngine.discount(field1, field2);
-          break;
-        case 'Tip':
-          output = calculatorEngine.tip(field1, field2);
-          break;
-        case 'Bill Split':
-          output = calculatorEngine.billSplit(field1, field2, Number(field3) || 0);
-          break;
-        case 'Tax':
-          output = calculatorEngine.tax(field1, field2);
-          break;
-        case 'EMI / Loan':
-          output = calculatorEngine.emi(field1, field2, field3);
-          break;
-        case 'Simple Interest':
-          output = calculatorEngine.simpleInterest(field1, field2, field3);
-          break;
-        case 'Compound Interest':
-          output = calculatorEngine.compoundInterest(field1, field2, field3, Number(field4) || 1);
-          break;
-        case 'SIP / Investment':
-          output = calculatorEngine.sip(field1, field2, field3);
-          break;
-        case 'Savings':
-          output = calculatorEngine.savings(field1, field2, field3);
-          break;
-        case 'ROI':
-          output = calculatorEngine.roi(field1, field2);
-          break;
-        case 'Profit & Loss':
-          output = calculatorEngine.profitLoss(field1, field2);
-          break;
-        case 'Inflation':
-          output = calculatorEngine.inflation(field1, field2, field3);
-          break;
-        case 'Salary':
-          output = calculatorEngine.salary(field1, Number(field2) || 12, Number(field3) || 0);
-          break;
-        case 'Markup':
-          output = calculatorEngine.markup(field1, field2);
-          break;
-        case 'Margin':
-          output = calculatorEngine.margin(field1, field2);
-          break;
-        case 'Break-even':
-          output = calculatorEngine.breakEven(field1, field2, field3);
-          break;
-        case 'CAGR':
-          output = calculatorEngine.cagr(field1, field2, field3);
-          break;
-        case 'Growth':
-          output = calculatorEngine.growth(field1, field2);
-          break;
-        case 'Pricing':
-          output = calculatorEngine.pricing(field1, field2);
-          break;
-        case 'Gold Value':
-        case 'Buy / Sell Value':
-        case 'Silver Value':
-          output = calculatorEngine.goldValue(field1, field2);
-          break;
-        case 'Karat ↔ Purity':
-          output = calculatorEngine.karatPurity(field1, field2);
-          break;
-        case 'Pure Gold Weight':
-          output = calculatorEngine.pureGoldWeight(field1, field2);
-          break;
-        case 'Jewellery Price':
-          output = calculatorEngine.jewelleryPrice(field1, Number(field2) || 0, Number(field3) || 0, Number(field4) || 3);
-          break;
-        case 'BMI':
-          output = calculatorEngine.bmi(field1, field2);
-          break;
-        case 'BMR':
-          output = calculatorEngine.bmr(field1, field2, field3, field4);
-          break;
-        case 'TDEE':
-          output = calculatorEngine.tdee(field1, field2);
-          break;
-        case 'Macros':
-          output = calculatorEngine.macros(field1, Number(field2) || 30, Number(field3) || 40, Number(field4) || 30);
-          break;
-        case 'Water Intake':
-          output = calculatorEngine.waterIntake(field1, Number(field2) || 35);
-          break;
-        case 'Running Pace':
-          output = calculatorEngine.pace(field1, field2);
-          break;
-        case 'Age':
-          output = calculatorEngine.age(field1);
-          break;
-        case 'Date Difference':
-          output = calculatorEngine.dateDifference(field1, field2);
-          break;
-        case 'Working Days':
-          output = calculatorEngine.workingDays(field1, field2);
-          break;
-        case 'Length':
-        case 'Weight':
-        case 'Area':
-        case 'Volume':
-        case 'Speed':
-        case 'Time':
-        case 'Energy':
-        case 'Pressure':
-        case 'Power':
-          output = calculatorEngine.unit(field1, unitFrom, unitTo, CALC_UNIT_FACTORS[selectedTool]);
-          break;
-        case 'Temperature':
-          output = calculatorEngine.temperature(field1, unitFrom, unitTo);
-          break;
-        case 'Nepal Land':
-          output = calculatorEngine.unit(field1, unitFrom, unitTo, NP_UNITS.land);
-          break;
-        case 'Nepal Length':
-          output = calculatorEngine.unit(field1, unitFrom, unitTo, NP_UNITS.length);
-          break;
-        case 'Nepal Volume':
-          output = calculatorEngine.unit(field1, unitFrom, unitTo, NP_UNITS.volume);
-          break;
-        case 'Nepal Weight':
-          output = calculatorEngine.unit(field1, unitFrom, unitTo, NP_UNITS.weight);
-          break;
-        case 'Room Area':
-          output = calculatorEngine.roomArea(field1, field2);
-          break;
-        case 'Mileage':
-          output = calculatorEngine.mileage(field1, field2);
-          break;
-        case 'Fuel Cost':
-          output = calculatorEngine.fuelCost(field1, field2, field3);
-          break;
-        case 'Binary':
-          output = `Decimal: ${parseInt(field1, 2)}`;
-          break;
-        case 'Decimal':
-          output = `Binary: ${Number(field1).toString(2)} | Hex: ${Number(field1).toString(16).toUpperCase()}`;
-          break;
-        case 'Base Converter':
-          output = calculatorEngine.baseConvert(field1, field2, field3);
-          break;
-        case 'IP / Subnet':
-          output = calculatorEngine.ipSubnet(field1, field2);
-          break;
-        default:
-          output = 'Calculation executed';
-      }
-
+      const output = config.calculate(f1, f2, f3, f4, unitFrom, unitTo);
       const resString = String(output);
       setResult(resString);
 
@@ -244,7 +88,7 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
       const historyItem: CalcHistoryItem = {
         id: generateUUID(),
         tool: selectedTool,
-        args: [field1, field2, field3, field4],
+        args: [f1, f2, f3, f4, unitFrom, unitTo].filter(Boolean),
         result: resString,
         createdAt: Date.now()
       };
@@ -255,43 +99,179 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
     }
   };
 
+  const handleKeypadResult = async (expr: string, res: string) => {
+    setResult(res);
+    const historyItem: CalcHistoryItem = {
+      id: generateUUID(),
+      tool: selectedTool,
+      args: [expr],
+      result: `${expr} = ${res}`,
+      createdAt: Date.now()
+    };
+    await storage.put('calcHistory', historyItem);
+    onRefresh();
+  };
+
   const handleToggleFavorite = async () => {
-    const appSettings = await storage.getSingleton<any>('appSettings') || {};
+    const appSettings = (await storage.getSingleton<any>('appSettings')) || {};
     const favs: string[] = appSettings.calcFavorites || [];
     const isFav = favs.includes(selectedTool);
     const updated = isFav ? favs.filter(f => f !== selectedTool) : [...favs, selectedTool];
 
     appSettings.calcFavorites = updated;
     await storage.setSingleton('appSettings', appSettings);
-    onSuccess(isFav ? 'Removed from favorites' : '★ Added to favorites');
+    onSuccess(isFav ? `Removed ${selectedTool} from favorites` : `★ Added ${selectedTool} to favorites`);
     onRefresh();
+  };
+
+  const handleClearHistory = async () => {
+    const all = await storage.getAll<CalcHistoryItem>('calcHistory');
+    for (const h of all) {
+      await storage.delete('calcHistory', h.id);
+    }
+    onSuccess('Calculation history cleared');
+    onRefresh();
+  };
+
+  const handleCopyResult = () => {
+    navigator.clipboard.writeText(result);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+    onSuccess('Result copied to clipboard');
+  };
+
+  const handleSwapUnits = () => {
+    const temp = unitFrom;
+    setUnitFrom(unitTo);
+    setUnitTo(temp);
   };
 
   const isFavorite = favorites.includes(selectedTool);
 
+  // Filter tools by search query across all categories or current category
+  const filteredTools = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return CALCULATOR_CATALOG[selectedCategory] || [];
+    }
+    const q = searchQuery.toLowerCase().trim();
+    const matches: string[] = [];
+    Object.entries(CALCULATOR_CATALOG).forEach(([cat, list]) => {
+      list.forEach(t => {
+        if (t.toLowerCase().includes(q) || cat.toLowerCase().includes(q)) {
+          if (!matches.includes(t)) matches.push(t);
+        }
+      });
+    });
+    return matches;
+  }, [searchQuery, selectedCategory]);
+
+  // Unit options generator for converter tools
+  const renderUnitOptions = () => {
+    const cfg = currentConfig;
+    if (!cfg.isConverter) return null;
+
+    if (cfg.unitType === 'nepal_land') {
+      return Object.keys(NP_UNITS.land).map(u => (
+        <option key={u} value={u}>
+          {u.replace('_', ' ').toUpperCase()}
+        </option>
+      ));
+    }
+    if (cfg.unitType === 'nepal_length') {
+      return Object.keys(NP_UNITS.length).map(u => (
+        <option key={u} value={u}>
+          {u.toUpperCase()}
+        </option>
+      ));
+    }
+    if (cfg.unitType === 'nepal_volume') {
+      return Object.keys(NP_UNITS.volume).map(u => (
+        <option key={u} value={u}>
+          {u.toUpperCase()}
+        </option>
+      ));
+    }
+    if (cfg.unitType === 'nepal_weight') {
+      return Object.keys(NP_UNITS.weight).map(u => (
+        <option key={u} value={u}>
+          {u.toUpperCase()}
+        </option>
+      ));
+    }
+    if (cfg.unitType === 'temp') {
+      return [
+        <option key="C" value="C">Celsius (°C)</option>,
+        <option key="F" value="F">Fahrenheit (°F)</option>,
+        <option key="K" value="K">Kelvin (K)</option>
+      ];
+    }
+    if (cfg.unitType === 'currency') {
+      return Object.keys(CALC_UNIT_FACTORS.Currency).map(c => (
+        <option key={c} value={c}>
+          {c}
+        </option>
+      ));
+    }
+    if (cfg.unitGroup && CALC_UNIT_FACTORS[cfg.unitGroup]) {
+      return Object.keys(CALC_UNIT_FACTORS[cfg.unitGroup]).map(u => (
+        <option key={u} value={u}>
+          {u.replace('_', ' ')}
+        </option>
+      ));
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
-          Calculator & Computational Tools
-        </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          108 domain-specific analytical engines: Financial EMI, SIP, Gold valuation, Nepal Land, Health, Programmer, Physics.
-        </p>
+      {/* Header and Search Bar */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl flex items-center gap-2">
+            <Calculator className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+            Computational & Multi-Domain Calculator
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            108 specialized analytical tools: Finance (EMI, SIP, CAGR), Gold & Jewellery, Nepal Land, Health, Programming, and Physics.
+          </p>
+        </div>
+
+        {/* Search Input */}
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search 108 calculators..."
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Category Tabs */}
       <div className="flex overflow-x-auto pb-2 gap-1.5 border-b border-slate-200 dark:border-slate-800">
         {Object.keys(CALCULATOR_CATALOG).map(catKey => {
           const isCat = selectedCategory === catKey;
+          const count = CALCULATOR_CATALOG[catKey]?.length || 0;
           return (
             <button
               key={catKey}
               type="button"
               onClick={() => {
                 setSelectedCategory(catKey);
-                const firstTool = CALCULATOR_CATALOG[catKey]?.[0] || 'Basic';
-                handleSelectTool(firstTool);
+                setSearchQuery('');
+                const first = CALCULATOR_CATALOG[catKey]?.[0] || 'Basic';
+                setSelectedTool(first);
               }}
               className={`rounded-xl px-3 py-1.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition-colors ${
                 isCat
@@ -299,7 +279,7 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
               }`}
             >
-              {catKey} ({CALCULATOR_CATALOG[catKey]?.length})
+              {catKey} ({count})
             </button>
           );
         })}
@@ -312,13 +292,13 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-bold text-slate-900 dark:text-white">
-                Available Tools in {selectedCategory.toUpperCase()}
+                {searchQuery ? `Search Results (${filteredTools.length})` : `${selectedCategory.toUpperCase()} Tools (${filteredTools.length})`}
               </span>
               <button
                 type="button"
                 onClick={handleToggleFavorite}
-                className={`flex items-center gap-1 text-xs font-semibold ${
-                  isFavorite ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600'
+                className={`flex items-center gap-1 text-xs font-semibold transition-colors ${
+                  isFavorite ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                 }`}
               >
                 <Star className={`h-3.5 w-3.5 ${isFavorite ? 'fill-current' : ''}`} />
@@ -326,243 +306,189 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1">
-              {tools.map(tool => (
-                <button
-                  key={tool}
-                  type="button"
-                  onClick={() => handleSelectTool(tool)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                    selectedTool === tool
-                      ? 'bg-indigo-600 font-semibold text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
-                  }`}
-                >
-                  {tool}
-                </button>
-              ))}
+            <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-1">
+              {filteredTools.map(tool => {
+                const isSelected = selectedTool === tool;
+                const isToolFav = favorites.includes(tool);
+                return (
+                  <button
+                    key={tool}
+                    type="button"
+                    onClick={() => setSelectedTool(tool)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1 ${
+                      isSelected
+                        ? 'bg-indigo-600 font-semibold text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    {isToolFav && <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />}
+                    <span>{tool}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Calculator Input Box */}
+          {/* Calculator Workstation Box */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
-              <Calculator className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                {selectedTool} Engine
-              </h2>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Calculator className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {selectedTool} Engine
+                </h2>
+              </div>
+              {(selectedTool === 'Basic' || selectedTool === 'Scientific') && (
+                <button
+                  type="button"
+                  onClick={() => setUseKeypad(!useKeypad)}
+                  className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+                >
+                  <Sliders className="h-3 w-3" />
+                  <span>{useKeypad ? 'Switch to Form Fields' : 'Switch to Interactive Keypad'}</span>
+                </button>
+              )}
             </div>
 
-            <div className="mt-4 space-y-4">
-              {/* Dynamic Input Form */}
-              {selectedTool === 'Basic' && (
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Operand A</label>
-                    <input
-                      type="number"
-                      value={field1}
-                      onChange={e => setField1(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {currentConfig.description}
+            </p>
+
+            {currentConfig.formula && (
+              <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+                <Info className="h-3 w-3" />
+                <span>{currentConfig.formula}</span>
+              </div>
+            )}
+
+            <div className="mt-5 space-y-4">
+              {/* If Basic or Scientific and user wants on-screen Keypad */}
+              {(selectedTool === 'Basic' || selectedTool === 'Scientific') && useKeypad ? (
+                <InteractiveKeypad
+                  onComputeResult={handleKeypadResult}
+                  isScientific={selectedTool === 'Scientific'}
+                />
+              ) : (
+                /* Dynamic Input Forms for All Tools */
+                <div className="space-y-4">
+                  <div className={`grid gap-3 ${currentConfig.fields.length >= 3 ? 'grid-cols-1 sm:grid-cols-3' : currentConfig.fields.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+                    {currentConfig.fields.map((field, idx) => {
+                      const fieldKey = `f${idx + 1}`;
+                      const val = inputs[fieldKey] ?? field.default;
+
+                      return (
+                        <div key={fieldKey}>
+                          <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                            {field.label}
+                          </label>
+
+                          {field.type === 'select' && field.options ? (
+                            <select
+                              value={val}
+                              onChange={e => setInputs({ ...inputs, [fieldKey]: e.target.value })}
+                              className="mt-1 h-9.5 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                            >
+                              {field.options.map(opt => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={field.type || 'text'}
+                              step={field.step || 'any'}
+                              value={val}
+                              placeholder={field.placeholder}
+                              onChange={e => setInputs({ ...inputs, [fieldKey]: e.target.value })}
+                              className="mt-1 h-9.5 w-full rounded-xl border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Operator</label>
-                    <select
-                      value={field2}
-                      onChange={e => setField2(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    >
-                      <option value="+">+</option>
-                      <option value="-">-</option>
-                      <option value="*">×</option>
-                      <option value="/">÷</option>
-                      <option value="%">%</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Operand B</label>
-                    <input
-                      type="number"
-                      value={field3}
-                      onChange={e => setField3(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
+
+                  {/* Converter Unit Selector */}
+                  {currentConfig.isConverter && (
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-center rounded-xl bg-slate-50 p-3 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-800">
+                      <div className="sm:col-span-2">
+                        <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                          Convert From
+                        </label>
+                        <select
+                          value={unitFrom}
+                          onChange={e => setUnitFrom(e.target.value)}
+                          className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                        >
+                          {renderUnitOptions()}
+                        </select>
+                      </div>
+
+                      <div className="flex justify-center pt-3 sm:pt-4">
+                        <button
+                          type="button"
+                          onClick={handleSwapUnits}
+                          className="rounded-lg p-2 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+                          title="Swap Units"
+                        >
+                          <ArrowRightLeft className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                          Convert To
+                        </label>
+                        <select
+                          value={unitTo}
+                          onChange={e => setUnitTo(e.target.value)}
+                          className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                        >
+                          {renderUnitOptions()}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Calculate Action Button */}
+                  <button
+                    type="button"
+                    onClick={handleCalculate}
+                    className="w-full rounded-xl bg-indigo-600 py-3 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 active:scale-98 transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    <span>Calculate {selectedTool}</span>
+                  </button>
                 </div>
               )}
 
-              {selectedTool === 'EMI / Loan' && (
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Principal (₹)</label>
-                    <input
-                      type="number"
-                      value={field1}
-                      onChange={e => setField1(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Annual Interest Rate (%)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={field2}
-                      onChange={e => setField2(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Tenure (Months)</label>
-                    <input
-                      type="number"
-                      value={field3}
-                      onChange={e => setField3(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
+              {/* Formatted Output Container */}
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400">
+                    Computed Output
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyResult}
+                    disabled={result === '—'}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-indigo-600 disabled:opacity-30 dark:text-slate-300 dark:hover:text-indigo-400"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-500" />
+                        <span className="text-emerald-600 dark:text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span>Copy Result</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-              )}
-
-              {selectedTool === 'SIP / Investment' && (
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Monthly Deposit (₹)</label>
-                    <input
-                      type="number"
-                      value={field1}
-                      onChange={e => setField1(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Expected Return (%)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={field2}
-                      onChange={e => setField2(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Duration (Months)</label>
-                    <input
-                      type="number"
-                      value={field3}
-                      onChange={e => setField3(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {(selectedTool === 'Gold Value' || selectedTool === 'Buy / Sell Value') && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Weight (Tola / Grams)</label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      value={field1}
-                      onChange={e => setField1(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Rate per Unit (₹)</label>
-                    <input
-                      type="number"
-                      value={field2}
-                      onChange={e => setField2(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {['Length', 'Weight', 'Area', 'Volume', 'Speed', 'Temperature', 'Nepal Land'].includes(selectedTool) && (
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Value</label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={field1}
-                      onChange={e => setField1(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">From Unit</label>
-                    <select
-                      value={unitFrom}
-                      onChange={e => setUnitFrom(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    >
-                      {selectedTool === 'Nepal Land'
-                        ? Object.keys(NP_UNITS.land).map(u => <option key={u} value={u}>{u}</option>)
-                        : selectedTool === 'Temperature'
-                        ? ['C', 'F', 'K'].map(u => <option key={u} value={u}>{u}</option>)
-                        : Object.keys(CALC_UNIT_FACTORS[selectedTool] || {}).map(u => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">To Unit</label>
-                    <select
-                      value={unitTo}
-                      onChange={e => setUnitTo(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    >
-                      {selectedTool === 'Nepal Land'
-                        ? Object.keys(NP_UNITS.land).map(u => <option key={u} value={u}>{u}</option>)
-                        : selectedTool === 'Temperature'
-                        ? ['C', 'F', 'K'].map(u => <option key={u} value={u}>{u}</option>)
-                        : Object.keys(CALC_UNIT_FACTORS[selectedTool] || {}).map(u => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* Generic fallback inputs if not custom rendered */}
-              {!['Basic', 'EMI / Loan', 'SIP / Investment', 'Gold Value', 'Buy / Sell Value', 'Length', 'Weight', 'Area', 'Volume', 'Speed', 'Temperature', 'Nepal Land'].includes(selectedTool) && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Input A</label>
-                    <input
-                      type="text"
-                      value={field1}
-                      onChange={e => setField1(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Input B</label>
-                    <input
-                      type="text"
-                      value={field2}
-                      onChange={e => setField2(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-lg border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleCalculate}
-                className="w-full rounded-lg bg-indigo-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 active:scale-98"
-              >
-                Compute Calculation
-              </button>
-
-              {/* Result Container */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Computed Output
-                </div>
-                <div className="mt-2 font-mono text-base font-bold text-indigo-700 dark:text-indigo-300 break-words">
+                <div className="mt-2 font-mono text-base font-bold text-slate-900 dark:text-white break-words">
                   {result}
                 </div>
               </div>
@@ -573,25 +499,56 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
         {/* Calculation History & Favorites (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
-              <History className="h-4 w-4 text-slate-500" />
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Recent Calculations</h2>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <History className="h-4 w-4 text-slate-500" />
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Calculation History
+                </h2>
+              </div>
+              {history.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearHistory}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-red-500 hover:text-red-700 dark:hover:text-red-400"
+                  title="Clear history"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  <span>Clear</span>
+                </button>
+              )}
             </div>
 
-            <div className="mt-3 space-y-2.5 max-h-80 overflow-y-auto">
+            <div className="mt-3 space-y-2.5 max-h-96 overflow-y-auto">
               {history.length === 0 ? (
                 <div className="py-8 text-center text-xs text-slate-400">
                   No calculations recorded yet.
                 </div>
               ) : (
-                history.slice().reverse().slice(0, 10).map(h => (
-                  <div key={h.id} className="rounded-xl border border-slate-100 p-2.5 text-xs dark:border-slate-800">
-                    <div className="font-semibold text-slate-800 dark:text-slate-200">{h.tool}</div>
-                    <div className="mt-1 font-mono text-[11px] text-indigo-600 dark:text-indigo-400 break-words">
-                      {h.result}
+                history
+                  .slice()
+                  .reverse()
+                  .slice(0, 15)
+                  .map(h => (
+                    <div
+                      key={h.id}
+                      onClick={() => {
+                        setSelectedTool(h.tool);
+                        setResult(h.result);
+                      }}
+                      className="cursor-pointer rounded-xl border border-slate-100 bg-slate-50/50 p-3 text-xs transition-colors hover:border-indigo-200 hover:bg-indigo-50/30 dark:border-slate-800 dark:bg-slate-800/40 dark:hover:border-indigo-800"
+                    >
+                      <div className="flex items-center justify-between font-semibold text-slate-800 dark:text-slate-200">
+                        <span>{h.tool}</span>
+                        <span className="text-[10px] text-slate-400">
+                          {new Date(h.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="mt-1 font-mono text-[11px] text-indigo-600 dark:text-indigo-400 break-words font-medium">
+                        {h.result}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))
               )}
             </div>
           </div>

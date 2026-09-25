@@ -604,7 +604,7 @@ export default function App() {
                 onError={msg => showToast(`⚠️ ${msg}`)}
                 theme={theme}
                 onToggleTheme={toggleTheme}
-                      />
+              />
             )}
           </div>
         </main>

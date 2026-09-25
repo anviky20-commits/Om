@@ -852,17 +852,3 @@ ${serializedJson}
 </html>`;
 }
 
-/**
- * Triggers a client-side download of the complete standalone HTML dashboard.
- */
-export async function downloadCompleteStandaloneHtml(): Promise<void> {
-  const data = await storage.exportAllData();
-  const htmlContent = generateCompleteStandaloneHtml(data);
-  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Om-LifeOS-Complete-Offline-Dashboard-${new Date().toISOString().slice(0, 10)}.html`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
