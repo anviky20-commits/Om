@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Window } from '@tauri-apps/api/window';
 import {
   NavModule, AppState, Task, Goal, Milestone, Strategy, KPI, Mission,
   Routine, Habit, HabitLog, FinanceAccount, FinanceTransaction, Loan,
@@ -68,22 +69,22 @@ export default function App() {
     });
   };
 
-  const handleLaunchPopupWidget = () => {
-    const width = 380;
-    const height = 580;
-    const left = window.screen.width - width - 40;
-    const top = 60;
-    const popup = window.open(
-      `${window.location.origin}${window.location.pathname}?widget_mode=true`,
-      'OmLifeOSWidget',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no,status=no,toolbar=no`
-    );
-    if (!popup) {
-      showToast('Popup was blocked by browser. Activated on-screen widget instead.');
-      setIsFloatingWidgetActive(true);
-      localStorage.setItem('om_widget_active', 'true');
-    } else {
-      showToast('Transparent Widget Window Opened');
+  const handleLaunchPopupWidget = async () => {
+    try {
+      const widget = await Window.getByLabel('widget');
+
+      if (!widget) {
+        showToast('⚠️ Desktop Widget window is not available');
+        return;
+      }
+
+      await widget.show();
+      await widget.setFocus();
+
+      showToast('✨ Desktop Widget opened');
+    } catch (error) {
+      console.error('Failed to open desktop widget:', error);
+      showToast('⚠️ Could not open Desktop Widget');
     }
   };
 
@@ -435,14 +436,19 @@ export default function App() {
           dailyPlanner={appSettings?.dailyPlanner}
           onToggleTask={handleToggleTask}
           onLogHabit={handleLogHabit}
-          onCloseWidget={() => {
-            window.close();
+          onCloseWidget={async () => {
+            const widget = await Window.getByLabel('widget');
+
+            if (widget) {
+              await widget.hide();
+            }
           }}
-          onOpenApp={() => {
-            if (window.opener) {
-              window.opener.focus();
-            } else {
-              window.open(window.location.origin, '_blank');
+          onOpenApp={async () => {
+            const main = await Window.getByLabel('main');
+
+            if (main) {
+              await main.show();
+              await main.setFocus();
             }
           }}
         />
