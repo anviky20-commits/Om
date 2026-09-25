@@ -181,12 +181,12 @@ export const RoutineView: React.FC<RoutineViewProps> = ({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Schedule Routine Block (1st col) */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 text-xs">
-              <Clock className="h-3.5 w-3.5" />
+        <section className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800/80 dark:bg-slate-900">
+          <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3.5 dark:border-slate-800">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 text-xs">
+              <Clock className="h-4 w-4" />
             </span>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
               Schedule Routine Time Block
             </h2>
           </div>
@@ -290,12 +290,12 @@ export const RoutineView: React.FC<RoutineViewProps> = ({
         </section>
 
         {/* Create Habit (2nd col) */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 text-xs">
-              <Repeat className="h-3.5 w-3.5" />
+        <section className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800/80 dark:bg-slate-900">
+          <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3.5 dark:border-slate-800">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 text-xs">
+              <Repeat className="h-4 w-4" />
             </span>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
               Create Recurring Habit
             </h2>
           </div>
@@ -393,8 +393,8 @@ export const RoutineView: React.FC<RoutineViewProps> = ({
       </div>
 
       {/* Routine Time Blocks Display */}
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 pb-3 dark:border-slate-800">
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800/80 dark:bg-slate-900">
+        <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white border-b border-slate-100 pb-3 dark:border-slate-800">
           Daily Routine Timeline ({routines.length} Blocks)
         </h2>
 
@@ -407,7 +407,7 @@ export const RoutineView: React.FC<RoutineViewProps> = ({
             routines.map(r => (
               <div
                 key={r.id}
-                className="relative rounded-2xl border border-slate-100 p-4 transition-all hover:border-slate-200 dark:border-slate-800 dark:hover:border-slate-700 flex flex-col justify-between"
+                className="relative rounded-xl border border-slate-100 p-4 transition-all hover:border-slate-200 dark:border-slate-800 dark:hover:border-slate-700 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -424,18 +424,18 @@ export const RoutineView: React.FC<RoutineViewProps> = ({
                     </button>
                   </div>
 
-                  <div className="mt-2 text-xs font-bold text-slate-900 dark:text-white">
+                  <div className="mt-2 text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                     {r.name}
                   </div>
 
-                  <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-400">
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-400">
                     <span className="capitalize">{r.category}</span>
                     <span>·</span>
                     <span className="capitalize">{r.frequency}</span>
                   </div>
 
                   {r.note && (
-                    <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
                       {r.note}
                     </p>
                   )}
@@ -447,11 +447,11 @@ export const RoutineView: React.FC<RoutineViewProps> = ({
       </section>
 
       {/* Habit Tracker Table & 7-Day Consistency Grid */}
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <Repeat className="h-4 w-4 text-amber-500" />
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800/80 dark:bg-slate-900 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
+          <div className="flex items-center gap-2.5">
+            <Repeat className="h-4.5 w-4.5 text-amber-500" />
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
               Habit Tracker & 7-Day Consistency (Today: {today})
             </h2>
           </div>

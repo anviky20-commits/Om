@@ -395,21 +395,21 @@ export const TasksView: React.FC<TasksViewProps> = ({
       </div>
 
       {/* Submenu Navigation Tabs */}
-      <div className="flex overflow-x-auto pb-2 gap-1.5 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex overflow-x-auto pb-2 gap-2 border-b border-slate-200 dark:border-slate-800 no-scrollbar">
         {[
-          { id: 'roster', label: `Task Roster (${openCount})`, icon: <CheckSquare className="h-3.5 w-3.5" /> },
-          { id: 'dailyCommand', label: 'Daily Command Target', icon: <Target className="h-3.5 w-3.5" /> },
-          { id: 'timeline', label: `Timeline & Schedule (${tasks.length})`, icon: <Calendar className="h-3.5 w-3.5" /> },
-          { id: 'kanban', label: 'Status Board (Kanban)', icon: <Layers className="h-3.5 w-3.5" /> }
+          { id: 'roster', label: `Task Roster (${openCount})`, icon: <CheckSquare className="h-4 w-4" /> },
+          { id: 'dailyCommand', label: 'Daily Command Target', icon: <Target className="h-4 w-4" /> },
+          { id: 'timeline', label: `Timeline & Schedule (${tasks.length})`, icon: <Calendar className="h-4 w-4" /> },
+          { id: 'kanban', label: 'Status Board (Kanban)', icon: <Layers className="h-4 w-4" /> }
         ].map(tab => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveSubMenu(tab.id as any)}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+            className={`flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer shrink-0 ${
               activeSubMenu === tab.id
                 ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
             }`}
           >
             {tab.icon}
@@ -424,18 +424,18 @@ export const TasksView: React.FC<TasksViewProps> = ({
           {/* Add/Edit Task Box (5 cols) */}
           <div
             ref={formRef}
-            className={`lg:col-span-5 rounded-3xl border transition-all ${
+            className={`lg:col-span-5 rounded-2xl border transition-all ${
               editingTaskId
                 ? 'border-indigo-400 bg-indigo-50/20 dark:border-indigo-500/50 dark:bg-indigo-950/20 ring-2 ring-indigo-500/20'
                 : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
-            } p-5 sm:p-6 shadow-sm`}
+            } p-5 sm:p-6 shadow-xs`}
           >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 text-xs font-bold">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 text-xs font-bold">
                   ✓
                 </span>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                   {editingTaskId ? 'Edit Task' : 'Create New Task'}
                 </h2>
               </div>
@@ -555,11 +555,13 @@ export const TasksView: React.FC<TasksViewProps> = ({
           </div>
 
           {/* Task Filter Tabs & All Tasks List (7 cols) */}
-          <section className="lg:col-span-7 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
+          <section className="lg:col-span-7 rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800/80 dark:bg-slate-900 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <CheckSquare className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+                  <CheckSquare className="h-4.5 w-4.5" />
+                </div>
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                   Task Roster ({filteredTasks.length})
                 </h2>
               </div>
@@ -572,13 +574,13 @@ export const TasksView: React.FC<TasksViewProps> = ({
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search tasks..."
-                  className="h-8 w-full rounded-xl border border-slate-200 pl-8 pr-3 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  className="h-8.5 w-full rounded-xl border border-slate-200 pl-8 pr-3 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
             </div>
 
             {/* Tab Filter Chips */}
-            <div className="flex flex-wrap gap-1.5 overflow-x-auto pb-1">
+            <div className="flex overflow-x-auto pb-1 gap-1.5 no-scrollbar">
               {[
                 { id: 'all', label: `All Tasks (${tasks.length})` },
                 { id: 'today', label: `Due Today (${todayCount})` },
@@ -591,10 +593,10 @@ export const TasksView: React.FC<TasksViewProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => setFilterTab(tab.id as any)}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                  className={`rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer ${
                     filterTab === tab.id
                       ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
                   }`}
                 >
                   {tab.label}

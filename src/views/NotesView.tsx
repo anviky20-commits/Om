@@ -7,6 +7,7 @@ import {
 import { Note } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { AttachmentUploader, AttachmentViewer, StoredAttachmentMeta } from '../components/AttachmentUploader';
 
 interface NotesViewProps {
   notes: Note[];
@@ -42,6 +43,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
   const [isPinned, setIsPinned] = useState(false);
   const [editorText, setEditorText] = useState('');
   const [editorMode, setEditorMode] = useState<'rich' | 'plain'>('plain');
+  const [attachments, setAttachments] = useState<StoredAttachmentMeta[]>([]);
   
   // Modal states
   const [editingModalNote, setEditingModalNote] = useState<Note | null>(null);
@@ -59,6 +61,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
   const [modalPinned, setModalPinned] = useState(false);
   const [modalContent, setModalContent] = useState('');
   const [modalEditorMode, setModalEditorMode] = useState<'plain' | 'rich'>('plain');
+  const [modalAttachments, setModalAttachments] = useState<StoredAttachmentMeta[]>([]);
 
   const formRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -134,6 +137,14 @@ export const NotesView: React.FC<NotesViewProps> = ({
     setModalPinned(Boolean(note.pinned));
     const content = note.body || note.html || '';
     setModalContent(content);
+    const parsedAtts: StoredAttachmentMeta[] = (note.attachments || []).map(a => {
+      try {
+        return typeof a === 'string' ? JSON.parse(a) : a;
+      } catch {
+        return { id: a, name: a, type: 'file', size: 0 };
+      }
+    });
+    setModalAttachments(parsedAtts);
   };
 
   // Inline edit handler (populates form and focuses)
@@ -149,6 +160,14 @@ export const NotesView: React.FC<NotesViewProps> = ({
     setIsPinned(Boolean(note.pinned));
     const content = note.body || note.html || '';
     setEditorText(content);
+    const parsedAtts: StoredAttachmentMeta[] = (note.attachments || []).map(a => {
+      try {
+        return typeof a === 'string' ? JSON.parse(a) : a;
+      } catch {
+        return { id: a, name: a, type: 'file', size: 0 };
+      }
+    });
+    setAttachments(parsedAtts);
 
     // Smooth scroll to form and focus
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -188,6 +207,8 @@ export const NotesView: React.FC<NotesViewProps> = ({
     const body = editorText;
     const html = editorText.replace(/\n/g, '<br/>');
 
+    const serializedAttachments = attachments.map(a => JSON.stringify(a));
+
     if (editingNoteId) {
       const existing = notes.find(n => n.id === editingNoteId);
       if (existing) {
@@ -201,6 +222,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
           points: points.trim() || undefined,
           color: colorTheme,
           pinned: isPinned,
+          attachments: serializedAttachments.length > 0 ? serializedAttachments : undefined,
           updatedAt: now
         };
         await storage.put('notes', updated);
@@ -217,6 +239,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
         points: points.trim() || undefined,
         color: colorTheme,
         pinned: isPinned,
+        attachments: serializedAttachments.length > 0 ? serializedAttachments : undefined,
         date: new Date().toISOString().slice(0, 10),
         createdAt: now,
         updatedAt: now
@@ -243,6 +266,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
     const now = Date.now();
     const body = modalContent;
     const html = modalContent.replace(/\n/g, '<br/>');
+    const serializedModalAttachments = modalAttachments.map(a => JSON.stringify(a));
 
     const updated: Note = {
       ...editingModalNote,
@@ -254,6 +278,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
       points: modalPoints.trim() || undefined,
       color: modalColor,
       pinned: modalPinned,
+      attachments: serializedModalAttachments.length > 0 ? serializedModalAttachments : undefined,
       updatedAt: now
     };
 
@@ -337,6 +362,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
     setIsPinned(false);
     setEditorText('');
     setCustomCategoryInput('');
+    setAttachments([]);
   };
 
   const filteredNotes = notes.filter(n => {
@@ -419,15 +445,15 @@ export const NotesView: React.FC<NotesViewProps> = ({
         {/* Note Editor Form (5 cols) */}
         <div
           ref={formRef}
-          className={`lg:col-span-5 rounded-3xl border transition-all ${
+          className={`lg:col-span-5 rounded-2xl border transition-all ${
             editingNoteId
               ? 'border-indigo-400 bg-indigo-50/20 dark:border-indigo-500/50 dark:bg-indigo-950/20 ring-2 ring-indigo-500/20'
               : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
-          } p-5 sm:p-6 shadow-sm`}
+          } p-5 sm:p-6 shadow-xs`}
         >
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 text-xs">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 text-xs">
                 📝
               </span>
               <span>{editingNoteId ? 'Edit Note (Inline)' : 'Create New Note'}</span>
@@ -571,6 +597,15 @@ export const NotesView: React.FC<NotesViewProps> = ({
               />
             </div>
 
+            {/* Attached Files Section */}
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+              <AttachmentUploader
+                attachments={attachments}
+                onChange={setAttachments}
+                label="Attach Files & Images"
+              />
+            </div>
+
             <button
               type="submit"
               className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 active:scale-98 transition-transform cursor-pointer"
@@ -582,7 +617,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
 
         {/* Notes Grid & Filter Bar (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-3">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800/80 dark:bg-slate-900 space-y-3.5">
             {/* Search Input */}
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
@@ -596,14 +631,14 @@ export const NotesView: React.FC<NotesViewProps> = ({
             </div>
 
             {/* Notebook Filters */}
-            <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1">
+            <div className="flex overflow-x-auto pb-1 gap-2 no-scrollbar">
               <button
                 type="button"
                 onClick={() => setSelectedCategory('all')}
-                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+                className={`rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer ${
                   selectedCategory === 'all'
                     ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
                 }`}
               >
                 All Notebooks ({notes.length})
@@ -615,10 +650,10 @@ export const NotesView: React.FC<NotesViewProps> = ({
                     key={cat}
                     type="button"
                     onClick={() => setSelectedCategory(cat)}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+                    className={`rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer ${
                       selectedCategory === cat
                         ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
                     }`}
                   >
                     {cat} ({count})
@@ -728,6 +763,13 @@ export const NotesView: React.FC<NotesViewProps> = ({
                       {n.points && (
                         <div className="mt-2.5 rounded-xl bg-slate-900/5 dark:bg-white/5 p-2 font-mono text-[10px] text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed">
                           {n.points}
+                        </div>
+                      )}
+
+                      {/* Attached Files indicator / chips */}
+                      {n.attachments && n.attachments.length > 0 && (
+                        <div className="mt-2.5 pt-1.5 border-t border-black/5 dark:border-white/5">
+                          <AttachmentViewer attachments={n.attachments} compact={true} />
                         </div>
                       )}
                     </div>
@@ -912,6 +954,15 @@ export const NotesView: React.FC<NotesViewProps> = ({
                 />
               </div>
 
+              {/* Edit Modal Attachments */}
+              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+                <AttachmentUploader
+                  attachments={modalAttachments}
+                  onChange={setModalAttachments}
+                  label="Attach Files & Images"
+                />
+              </div>
+
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
@@ -1032,6 +1083,13 @@ export const NotesView: React.FC<NotesViewProps> = ({
                       #{tag.trim()}
                     </span>
                   ))}
+                </div>
+              )}
+
+              {/* Attachments in Viewing Modal */}
+              {viewingNote.attachments && viewingNote.attachments.length > 0 && (
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <AttachmentViewer attachments={viewingNote.attachments} />
                 </div>
               )}
             </div>

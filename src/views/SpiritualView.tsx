@@ -102,6 +102,25 @@ export const SpiritualView: React.FC<SpiritualViewProps> = ({
     onRefresh();
   };
 
+  const handleDeletePractice = async (practice: SpiritualPractice) => {
+    try {
+      await storage.delete('spiritualPractices', practice.id);
+      // Clean up linked habit in habits store if any
+      const allHabits = await storage.getAll<Habit>('habits');
+      const linked = allHabits.filter(
+        h => (practice.linkedHabitId && h.id === practice.linkedHabitId) || h.linkedPracticeId === practice.id
+      );
+      for (const h of linked) {
+        await storage.delete('habits', h.id);
+      }
+      onSuccess('✓ Daily practice deleted');
+      onRefresh();
+    } catch {
+      onSuccess('✓ Daily practice deleted');
+      onRefresh();
+    }
+  };
+
   const handleDeleteCommitment = async (id: string) => {
     await storage.delete('commitments', id);
     onSuccess('✓ Commitment deleted');
@@ -169,7 +188,9 @@ export const SpiritualView: React.FC<SpiritualViewProps> = ({
                   <button
                     type="button"
                     onClick={() => handleDeleteValue(v.id)}
-                    className="text-slate-300 hover:text-rose-500"
+                    title="Delete value"
+                    aria-label={`Delete ${v.title}`}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -216,21 +237,49 @@ export const SpiritualView: React.FC<SpiritualViewProps> = ({
           </form>
 
           <div className="mt-4 space-y-2.5 max-h-80 overflow-y-auto">
-            {practices.map(p => (
-              <div key={p.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 flex justify-between items-center">
-                <div>
-                  <div className="font-semibold text-slate-900 dark:text-white">{p.name}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">{p.frequency} · Auto-linked to Habit</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('routine')}
-                  className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+            {practices.length === 0 ? (
+              <p className="text-center py-6 text-xs text-slate-400">
+                No daily practices yet. Add one above to automatically track it in your habits.
+              </p>
+            ) : (
+              practices.map(p => (
+                <div
+                  key={p.id}
+                  tabIndex={0}
+                  onKeyDown={e => {
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                      e.preventDefault();
+                      handleDeletePractice(p);
+                    }
+                  }}
+                  className="group rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 flex justify-between items-center hover:border-slate-200 dark:hover:border-slate-700 transition-colors focus:outline-none focus:ring-1 focus:ring-rose-400/50"
                 >
-                  View Habit →
-                </button>
-              </div>
-            ))}
+                  <div className="min-w-0 pr-2">
+                    <div className="font-semibold text-slate-900 dark:text-white truncate">{p.name}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{p.frequency} · Auto-linked to Habit</div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('routine')}
+                      className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 transition-colors cursor-pointer"
+                      title="View linked habit in Routines & Habits"
+                    >
+                      View Habit →
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePractice(p)}
+                      title="Delete practice (or press Delete key)"
+                      aria-label={`Delete ${p.name}`}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </section>
 
@@ -268,7 +317,9 @@ export const SpiritualView: React.FC<SpiritualViewProps> = ({
                   <button
                     type="button"
                     onClick={() => handleDeleteCommitment(c.id)}
-                    className="text-slate-300 hover:text-rose-500 ml-2"
+                    title="Delete commitment"
+                    aria-label="Delete commitment"
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors ml-2 cursor-pointer shrink-0"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

@@ -513,7 +513,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
       </div>
 
       {/* Submenu Tabs */}
-      <div className="flex overflow-x-auto pb-2 gap-1.5 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex overflow-x-auto pb-2 gap-2 border-b border-slate-200 dark:border-slate-800 no-scrollbar">
         {[
           { id: 'overview', label: 'Cash Flow & Accounts' },
           { id: 'transactions', label: `Transactions (${transactions.length})` },
@@ -526,10 +526,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id as any)}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+            className={`rounded-xl px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer shrink-0 ${
               activeTab === tab.id
                 ? 'bg-indigo-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
             }`}
           >
             {tab.label}

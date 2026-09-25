@@ -6,6 +6,7 @@ import {
 import { JournalEntry } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { AttachmentUploader, AttachmentViewer, StoredAttachmentMeta } from '../components/AttachmentUploader';
 
 interface JournalViewProps {
   journal: JournalEntry[];
@@ -24,9 +25,11 @@ export const JournalView: React.FC<JournalViewProps> = ({
   const [colorTheme, setColorTheme] = useState('sky');
   const [mood, setMood] = useState('Productive');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMoodFilter, setSelectedMoodFilter] = useState<string>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<JournalEntry | null>(null);
+  const [attachments, setAttachments] = useState<StoredAttachmentMeta[]>([]);
   const editorRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -87,6 +90,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
     if (!text.trim() && !title.trim()) return;
 
     const now = Date.now();
+    const serializedAttachments = attachments.map(a => JSON.stringify(a));
+
     if (editingId) {
       const existing = journal.find(j => j.id === editingId);
       if (existing) {
@@ -98,6 +103,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
           date,
           color: colorTheme,
           mood,
+          attachments: serializedAttachments.length > 0 ? serializedAttachments : undefined,
           updatedAt: now
         };
         await storage.put('journal', updated);
@@ -112,6 +118,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
         date,
         color: colorTheme,
         mood,
+        attachments: serializedAttachments.length > 0 ? serializedAttachments : undefined,
         createdAt: now,
         updatedAt: now
       };
@@ -129,6 +136,14 @@ export const JournalView: React.FC<JournalViewProps> = ({
     setDate(entry.date);
     setColorTheme(entry.color && themePalettes[entry.color] ? entry.color : 'sky');
     setMood(entry.mood || 'Productive');
+    const parsedAtts: StoredAttachmentMeta[] = (entry.attachments || []).map(a => {
+      try {
+        return typeof a === 'string' ? JSON.parse(a) : a;
+      } catch {
+        return { id: a, name: a, type: 'file', size: 0 };
+      }
+    });
+    setAttachments(parsedAtts);
     if (editorRef.current) {
       editorRef.current.innerHTML = entry.html || entry.text;
     }
@@ -176,12 +191,14 @@ export const JournalView: React.FC<JournalViewProps> = ({
     setDate(today);
     setColorTheme('sky');
     setMood('Productive');
+    setAttachments([]);
     if (editorRef.current) {
       editorRef.current.innerHTML = '';
     }
   };
 
   const filteredEntries = journal.filter(j => {
+    if (selectedMoodFilter !== 'all' && j.mood !== selectedMoodFilter) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return `${j.title} ${j.text} ${j.mood || ''} ${j.date}`.toLowerCase().includes(q);
@@ -204,18 +221,18 @@ export const JournalView: React.FC<JournalViewProps> = ({
         {/* Journal Editor (5 cols) */}
         <div
           ref={formRef}
-          className={`lg:col-span-5 rounded-3xl border transition-all ${
+          className={`lg:col-span-5 rounded-2xl border transition-all ${
             editingId
               ? 'border-indigo-400 bg-indigo-50/20 dark:border-indigo-500/50 dark:bg-indigo-950/20 ring-2 ring-indigo-500/20'
               : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
-          } p-5 sm:p-6 shadow-sm`}
+          } p-5 sm:p-6 shadow-xs`}
         >
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 text-xs">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 text-xs">
                 📖
               </span>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                 {editingId ? 'Edit Entry' : 'Record Reflection'}
               </h2>
             </div>
@@ -348,9 +365,18 @@ export const JournalView: React.FC<JournalViewProps> = ({
               />
             </div>
 
+            {/* Attached Files Section */}
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+              <AttachmentUploader
+                attachments={attachments}
+                onChange={setAttachments}
+                label="Attach Files & Media"
+              />
+            </div>
+
             <button
               type="submit"
-              className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 active:scale-98 transition-transform"
+              className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 active:scale-98 transition-transform cursor-pointer"
             >
               {editingId ? 'Update Reflection' : '＋ Save Reflection'}
             </button>
@@ -359,9 +385,9 @@ export const JournalView: React.FC<JournalViewProps> = ({
 
         {/* Journal Timeline Archive (7 cols) */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800/80 dark:bg-slate-900 space-y-3.5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                 Journal Timeline ({filteredEntries.length})
               </h2>
               <span className="text-[11px] text-slate-400">Chronological Archive</span>
@@ -377,6 +403,40 @@ export const JournalView: React.FC<JournalViewProps> = ({
                 placeholder="Search reflections by word, mood, or date..."
                 className="h-9 w-full rounded-xl border border-slate-200 pl-9 pr-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               />
+            </div>
+
+            {/* Mood / Category Filter Tabs */}
+            <div className="flex overflow-x-auto pb-1 gap-2 no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setSelectedMoodFilter('all')}
+                className={`rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer ${
+                  selectedMoodFilter === 'all'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
+                }`}
+              >
+                All Entries ({journal.length})
+              </button>
+              {moodOptions.map(m => {
+                const count = journal.filter(j => j.mood === m.label).length;
+                return (
+                  <button
+                    key={m.label}
+                    type="button"
+                    onClick={() => setSelectedMoodFilter(m.label)}
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer ${
+                      selectedMoodFilter === m.label
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
+                    }`}
+                  >
+                    <span>{m.icon}</span>
+                    <span>{m.label}</span>
+                    <span>({count})</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -445,6 +505,13 @@ export const JournalView: React.FC<JournalViewProps> = ({
                       className="prose prose-xs mt-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed"
                       dangerouslySetInnerHTML={{ __html: j.html || j.text }}
                     />
+
+                    {/* Attached files indicator / download list */}
+                    {j.attachments && j.attachments.length > 0 && (
+                      <div className="mt-3 pt-2 border-t border-black/5 dark:border-white/5">
+                        <AttachmentViewer attachments={j.attachments} compact={true} />
+                      </div>
+                    )}
                   </div>
                 );
               })

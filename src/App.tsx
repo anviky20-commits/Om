@@ -21,6 +21,8 @@ import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { BsDateModal } from './components/BsDateModal';
 import { MultiUserModal } from './components/MultiUserModal';
 import { ComputerFolderBackupModal } from './components/ComputerFolderBackupModal';
+import { TransparentWidget } from './components/TransparentWidget';
+import { WidgetGuideModal } from './components/WidgetGuideModal';
 
 // Views
 import { DashboardView } from './views/DashboardView';
@@ -52,6 +54,38 @@ export default function App() {
   const [isBsModalOpen, setIsBsModalOpen] = useState(false);
   const [isMultiUserOpen, setIsMultiUserOpen] = useState(false);
   const [isComputerBackupModalOpen, setIsComputerBackupModalOpen] = useState(false);
+  const [isWidgetGuideOpen, setIsWidgetGuideOpen] = useState(false);
+  const [isFloatingWidgetActive, setIsFloatingWidgetActive] = useState<boolean>(() => {
+    return localStorage.getItem('om_widget_active') === 'true';
+  });
+
+  const handleToggleWidget = () => {
+    setIsFloatingWidgetActive(prev => {
+      const next = !prev;
+      localStorage.setItem('om_widget_active', String(next));
+      if (next) showToast('✨ Transparent Widget Activated');
+      return next;
+    });
+  };
+
+  const handleLaunchPopupWidget = () => {
+    const width = 380;
+    const height = 580;
+    const left = window.screen.width - width - 40;
+    const top = 60;
+    const popup = window.open(
+      `${window.location.origin}${window.location.pathname}?widget_mode=true`,
+      'OmLifeOSWidget',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=no,status=no,toolbar=no`
+    );
+    if (!popup) {
+      showToast('Popup was blocked by browser. Activated on-screen widget instead.');
+      setIsFloatingWidgetActive(true);
+      localStorage.setItem('om_widget_active', 'true');
+    } else {
+      showToast('Transparent Widget Window Opened');
+    }
+  };
 
   // Entities state
   const [appSettings, setAppSettings] = useState<AppState | undefined>();
@@ -383,6 +417,39 @@ export default function App() {
   const openTasksCount = tasks.filter(t => !t.done).length;
   const categoriesList = appSettings?.noteCategories || ['General', 'Strategy', 'Projects', 'Finance', 'Ideas'];
 
+  // Check if running in dedicated widget window (e.g. Tauri widget or browser popup)
+  const isDedicatedWidgetWindow = typeof window !== 'undefined' && (
+    new URLSearchParams(window.location.search).get('widget_mode') === 'true' ||
+    new URLSearchParams(window.location.search).get('view') === 'widget'
+  );
+
+  if (isDedicatedWidgetWindow) {
+    return (
+      <div className="min-h-screen w-full bg-transparent p-2 select-none flex items-center justify-center">
+        <TransparentWidget
+          tasks={tasks}
+          habits={habits}
+          habitLogs={habitLogs}
+          finance={financeTransactions}
+          notes={notes}
+          dailyPlanner={appSettings?.dailyPlanner}
+          onToggleTask={handleToggleTask}
+          onLogHabit={handleLogHabit}
+          onCloseWidget={() => {
+            window.close();
+          }}
+          onOpenApp={() => {
+            if (window.opener) {
+              window.opener.focus();
+            } else {
+              window.open(window.location.origin, '_blank');
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 font-sans text-slate-900 selection:bg-indigo-500 selection:text-white dark:bg-slate-950 dark:text-slate-100">
       {/* Top Bar */}
@@ -397,6 +464,8 @@ export default function App() {
         onOpenBsModal={() => setIsBsModalOpen(true)}
         onOpenMultiUser={() => setIsMultiUserOpen(true)}
         onOpenComputerBackup={() => setIsComputerBackupModalOpen(true)}
+        onOpenWidgetGuide={() => setIsWidgetGuideOpen(true)}
+        isWidgetActive={isFloatingWidgetActive}
         theme={theme}
         onToggleTheme={toggleTheme}
         profiles={appSettings?.profiles || [{ id: 'default', name: 'Primary Workspace', createdAt: Date.now() }]}
@@ -421,11 +490,13 @@ export default function App() {
           openTasksCount={openTasksCount}
           remindersCount={reminders.filter(r => r.status !== 'done').length}
           onOpenComputerBackup={() => setIsComputerBackupModalOpen(true)}
+          onOpenWidgetModal={() => setIsWidgetGuideOpen(true)}
+          isWidgetActive={isFloatingWidgetActive}
         />
 
-        {/* Main Content Viewport */}
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 pb-20 md:pb-8">
-          <div className="mx-auto max-w-6xl">
+        {/* Main Content Viewport - Responsive across Mobile, Tablet, Laptop, and Desktop */}
+        <main className="flex-1 overflow-y-auto px-3.5 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 pb-24 md:pb-10 transition-colors">
+          <div className="mx-auto w-full max-w-7xl space-y-6">
             {activeModule === 'dashboard' && (
               <DashboardView
                 tasks={tasks}
@@ -651,6 +722,40 @@ export default function App() {
         onSuccess={showToast}
         onError={msg => showToast(`⚠️ ${msg}`)}
       />
+
+      {/* Windows Desktop Widget Guide & Launcher Modal */}
+      <WidgetGuideModal
+        isOpen={isWidgetGuideOpen}
+        onClose={() => setIsWidgetGuideOpen(false)}
+        onLaunchWidget={() => {
+          setIsFloatingWidgetActive(true);
+          localStorage.setItem('om_widget_active', 'true');
+          showToast('✨ Transparent Widget is now active on your screen');
+        }}
+        onLaunchPopupWidget={handleLaunchPopupWidget}
+      />
+
+      {/* Transparent Floating Windows Widget */}
+      {isFloatingWidgetActive && (
+        <TransparentWidget
+          tasks={tasks}
+          habits={habits}
+          habitLogs={habitLogs}
+          finance={financeTransactions}
+          notes={notes}
+          dailyPlanner={appSettings?.dailyPlanner}
+          onToggleTask={handleToggleTask}
+          onLogHabit={handleLogHabit}
+          onCloseWidget={() => {
+            setIsFloatingWidgetActive(false);
+            localStorage.setItem('om_widget_active', 'false');
+            showToast('Widget closed. Reopen anytime from Sidebar or Actions menu.');
+          }}
+          onOpenApp={() => {
+            window.focus?.();
+          }}
+        />
+      )}
 
       {/* Toast Notification */}
       {toastMessage && (

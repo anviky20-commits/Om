@@ -1,7 +1,7 @@
 import React from 'react';
 import {
-  CheckSquare, Target, Repeat, Timer, DollarSign,
-  TrendingUp, ArrowUpRight, ArrowDownRight, Plus, Sparkles,
+  CheckSquare, Target, Repeat, DollarSign,
+  TrendingUp, ArrowUpRight, ArrowDownRight, Sparkles,
   BookOpen, Bell, Award, User, ShieldCheck, Calendar, ArrowRight
 } from 'lucide-react';
 import {
@@ -73,53 +73,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Executive Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 p-6 sm:p-8 text-white shadow-xl border border-indigo-800/30">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2 text-indigo-300 text-xs font-semibold tracking-wider uppercase">
-              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-500/20 text-indigo-300 text-xs font-serif font-bold">ॐ</span>
-              <span>Om-LifeOS Command Center</span>
-            </div>
-            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-3xl lg:text-4xl">
-              Today's Sovereign Architecture
-            </h1>
-            <p className="mt-1.5 max-w-2xl text-xs sm:text-sm text-slate-300/90 leading-relaxed">
-              {dailyPlanner?.target || 'Unified personal operating system for high-leverage execution, double-entry financial clarity, and lifelong mastery.'}
-            </p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 p-5 sm:p-6 lg:p-7 text-white shadow-md border border-indigo-800/30">
+        <div className="relative z-10 max-w-3xl">
+          <div className="flex items-center gap-2 text-indigo-300 text-[11px] font-semibold tracking-wider uppercase">
+            <span className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-500/20 text-indigo-300 text-xs font-serif font-bold">ॐ</span>
+            <span>Om-LifeOS Command Center</span>
           </div>
-
-          <div className="flex flex-wrap gap-2.5">
-            <button
-              type="button"
-              onClick={() => onOpenQuickCapture('task')}
-              className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 active:scale-95 transition-all"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Quick Capture</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate('focus')}
-              className="flex items-center gap-1.5 rounded-xl border border-indigo-400/30 bg-white/10 px-4 py-2.5 text-xs font-semibold text-white backdrop-blur-md hover:bg-white/20 active:scale-95 transition-all"
-            >
-              <Timer className="h-4 w-4 text-indigo-300" />
-              <span>Launch Focus</span>
-            </button>
-          </div>
+          <h1 className="mt-2.5 text-base sm:text-lg md:text-xl lg:text-2xl font-bold tracking-tight text-white leading-snug">
+            Life can change your path, but never let it change who you become
+          </h1>
+          <p className="mt-1.5 text-xs sm:text-sm text-slate-300/80 leading-relaxed">
+            {dailyPlanner?.target || 'Unified personal operating system for high-leverage execution, double-entry financial clarity, and lifelong mastery.'}
+          </p>
         </div>
 
         {/* Subtle ambient lighting */}
-        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-indigo-500/15 blur-3xl pointer-events-none" />
+        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
       </div>
 
       {/* 4 Essential Metric Cards */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 transition-all hover:border-slate-300 dark:hover:border-slate-700 min-w-0">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800/80 dark:bg-slate-900 transition-all hover:border-slate-300 dark:hover:border-slate-700 min-w-0">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider truncate">Open Tasks</span>
+            <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">Open Tasks</span>
             <CheckSquare className="h-4 w-4 text-emerald-500 shrink-0" />
           </div>
-          <div className="mt-2.5 font-mono text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white tabular-nums truncate">
+          <div className="mt-2.5 font-mono text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white tabular-nums truncate">
             {openTasks.length}
           </div>
           <div className="mt-1 text-[11px] text-slate-400 font-medium truncate">
@@ -127,12 +107,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 transition-all hover:border-slate-300 dark:hover:border-slate-700 min-w-0">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800/80 dark:bg-slate-900 transition-all hover:border-slate-300 dark:hover:border-slate-700 min-w-0">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider truncate">Goals</span>
+            <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">Goals</span>
             <Target className="h-4 w-4 text-indigo-500 shrink-0" />
           </div>
-          <div className="mt-2.5 font-mono text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white tabular-nums truncate">
+          <div className="mt-2.5 font-mono text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white tabular-nums truncate">
             {goals.length}
           </div>
           <div className="mt-1 text-[11px] text-slate-400 font-medium truncate">
@@ -140,12 +120,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 transition-all hover:border-slate-300 dark:hover:border-slate-700 min-w-0">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800/80 dark:bg-slate-900 transition-all hover:border-slate-300 dark:hover:border-slate-700 min-w-0">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider truncate">Habits Today</span>
+            <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">Habits Today</span>
             <Repeat className="h-4 w-4 text-amber-500 shrink-0" />
           </div>
-          <div className="mt-2.5 font-mono text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white tabular-nums truncate">
+          <div className="mt-2.5 font-mono text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white tabular-nums truncate">
             {todayHabitLogs.length}/{habits.length || 0}
           </div>
           <div className="mt-1 text-[11px] text-slate-400 font-medium truncate">
@@ -153,12 +133,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 transition-all hover:border-slate-300 dark:hover:border-slate-700 min-w-0">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs dark:border-slate-800/80 dark:bg-slate-900 transition-all hover:border-slate-300 dark:hover:border-slate-700 min-w-0">
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider truncate">Net Flow</span>
+            <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate">Net Flow</span>
             <DollarSign className="h-4 w-4 text-emerald-600 shrink-0" />
           </div>
-          <div className={`mt-2.5 font-mono text-xl sm:text-2xl font-extrabold tracking-tight tabular-nums truncate ${netCashFlow >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+          <div className={`mt-2.5 font-mono text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums truncate ${netCashFlow >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
             ₹{netCashFlow.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </div>
           <div className="mt-1 text-[11px] text-slate-400 font-medium truncate">
@@ -170,14 +150,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Grid: Tasks & Planner + Habits */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Today's Tasks & Execution Checkpoints (7 cols) */}
-        <section className="lg:col-span-7 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className="lg:col-span-7 rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800/80 dark:bg-slate-900">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
-                <CheckSquare className="h-4 w-4" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+                <CheckSquare className="h-4.5 w-4.5" />
               </div>
               <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                   Today's Priority Tasks & Planner
                 </h2>
                 <span className="text-[11px] text-slate-400 font-medium">
@@ -244,13 +224,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </section>
 
         {/* Habit Consistency & Rituals (5 cols) */}
-        <section className="lg:col-span-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className="lg:col-span-5 rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800/80 dark:bg-slate-900">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
-                <Repeat className="h-4 w-4" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
+                <Repeat className="h-4.5 w-4.5" />
               </div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                 Habit Tracking
               </h2>
             </div>
@@ -275,11 +255,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 return (
                   <div
                     key={habit.id}
-                    className="flex items-center justify-between rounded-2xl border border-slate-100 p-3.5 dark:border-slate-800/60"
+                    className="flex items-center justify-between rounded-xl border border-slate-100 p-3.5 dark:border-slate-800/60"
                   >
                     <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-white">{habit.name}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
+                      <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">{habit.name}</div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
                         {habit.frequency || 'Daily'} · {habit.timesPerDay || 1}x daily
                       </div>
                     </div>
@@ -287,7 +267,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <button
                       type="button"
                       onClick={() => onLogHabit(habit.id)}
-                      className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all active:scale-95 ${
+                      className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
                         isDone
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
                           : 'bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-slate-800 dark:text-slate-300'
@@ -306,13 +286,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Grid: Financial Flow Overview + Strategic Goals */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Strategic Goals (6 cols) */}
-        <section className="lg:col-span-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className="lg:col-span-6 rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800/80 dark:bg-slate-900">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
-                <Target className="h-4 w-4" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+                <Target className="h-4.5 w-4.5" />
               </div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                 Strategic Goals & Trajectory
               </h2>
             </div>
@@ -329,9 +309,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="mt-4 space-y-4">
             {goals.slice(0, 4).map(goal => (
               <div key={goal.id} className="space-y-1.5">
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between text-xs sm:text-sm">
                   <span className="font-semibold text-slate-900 dark:text-white truncate pr-2">{goal.title}</span>
-                  <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
+                  <span className="font-mono text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
                     {goal.progress}%
                   </span>
                 </div>
@@ -347,13 +327,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </section>
 
         {/* Financial Flow & Cashflow Overview (6 cols) */}
-        <section className="lg:col-span-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className="lg:col-span-6 rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800/80 dark:bg-slate-900">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
-                <DollarSign className="h-4 w-4" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+                <DollarSign className="h-4.5 w-4.5" />
               </div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                 Cashflow Breakdown
               </h2>
             </div>
@@ -368,22 +348,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-slate-50 p-3.5 dark:bg-slate-800/60">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <div className="rounded-xl bg-slate-50 p-3.5 dark:bg-slate-800/60">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
                 <ArrowDownRight className="h-3.5 w-3.5 text-emerald-600" />
                 <span>Operating Inflow</span>
               </div>
-              <div className="mt-1 font-mono text-lg font-extrabold text-slate-900 dark:text-white tabular-nums">
+              <div className="mt-1 font-mono text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tabular-nums">
                 ₹{income.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </div>
             </div>
 
-            <div className="rounded-2xl bg-slate-50 p-3.5 dark:bg-slate-800/60">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <div className="rounded-xl bg-slate-50 p-3.5 dark:bg-slate-800/60">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
                 <ArrowUpRight className="h-3.5 w-3.5 text-rose-600" />
                 <span>Operating Outflow</span>
               </div>
-              <div className="mt-1 font-mono text-lg font-extrabold text-slate-900 dark:text-white tabular-nums">
+              <div className="mt-1 font-mono text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tabular-nums">
                 ₹{expense.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </div>
             </div>
@@ -391,13 +371,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* Quick Transaction stream */}
           <div className="mt-4 space-y-2">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               Recent Activity
             </div>
             {finance.slice().reverse().slice(0, 3).map(tx => (
               <div
                 key={tx.id}
-                className="flex items-center justify-between text-xs py-1 border-b border-slate-50 dark:border-slate-800/40 last:border-0"
+                className="flex items-center justify-between text-xs sm:text-sm py-1.5 border-b border-slate-50 dark:border-slate-800/40 last:border-0"
               >
                 <div>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{tx.category}</span>
@@ -415,18 +395,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Grid: Active Reminders + Achievements */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Reminders (6 cols) */}
-        <section className="lg:col-span-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className="lg:col-span-6 rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800/80 dark:bg-slate-900">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400">
-                <Bell className="h-4 w-4" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400">
+                <Bell className="h-4.5 w-4.5" />
               </div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Active Reminders</h2>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Active Reminders</h2>
             </div>
             <button
               type="button"
               onClick={() => onOpenQuickCapture('reminder')}
-              className="text-xs font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 cursor-pointer"
             >
               + Add Reminder
             </button>
@@ -439,9 +419,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             ) : (
               activeReminders.map(rem => (
-                <div key={rem.id} className="flex items-center justify-between rounded-2xl border border-slate-100 p-3 text-xs dark:border-slate-800/60">
+                <div key={rem.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-3 text-xs sm:text-sm dark:border-slate-800/60">
                   <span className="font-semibold text-slate-900 dark:text-white">{rem.title}</span>
-                  <span className="font-mono text-[11px] text-slate-400">{rem.dueAt}</span>
+                  <span className="font-mono text-xs text-slate-400">{rem.dueAt}</span>
                 </div>
               ))
             )}
@@ -449,12 +429,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </section>
 
         {/* Quick Capture Panel (6 cols) */}
-        <section className="lg:col-span-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <section className="lg:col-span-6 rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs dark:border-slate-800/80 dark:bg-slate-900">
           <div className="flex items-center gap-2.5 border-b border-slate-100 pb-4 dark:border-slate-800">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 font-bold">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 font-bold">
               ⚡
             </div>
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
               Instant Quick Capture Routing
             </h2>
           </div>

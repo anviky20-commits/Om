@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, CheckSquare, FileText, BookOpen, DollarSign, Target, Bell, User } from 'lucide-react';
 import { storage, generateUUID } from '../lib/storage';
 import { Task, Note, JournalEntry, FinanceTransaction, Goal, ReminderItem, Person } from '../types';
+import { AttachmentUploader, StoredAttachmentMeta } from './AttachmentUploader';
 
 interface QuickCaptureModalProps {
   isOpen: boolean;
@@ -25,10 +26,12 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({
   const [category, setCategory] = useState('');
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [attachments, setAttachments] = useState<StoredAttachmentMeta[]>([]);
 
   React.useEffect(() => {
     if (isOpen) {
       setActiveType(initialType);
+      setAttachments([]);
     }
   }, [isOpen, initialType]);
 
@@ -57,12 +60,14 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({
         await storage.put('tasks', newTask);
         onSuccess('✓ Task captured successfully');
       } else if (activeType === 'note') {
+        const serializedAttachments = attachments.map(a => JSON.stringify(a));
         const newNote: Note = {
           id: generateUUID(),
           title: title.trim(),
           body: details.trim(),
           html: `<p>${details.trim().replace(/\n/g, '<br>')}</p>`,
           category: category.trim() || 'General',
+          attachments: serializedAttachments.length > 0 ? serializedAttachments : undefined,
           date,
           createdAt: now,
           updatedAt: now
@@ -70,11 +75,13 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({
         await storage.put('notes', newNote);
         onSuccess('📝 Note captured successfully');
       } else if (activeType === 'journal') {
+        const serializedAttachments = attachments.map(a => JSON.stringify(a));
         const newJournal: JournalEntry = {
           id: generateUUID(),
           title: title.trim() || 'Daily Reflection',
           text: details.trim(),
           html: `<p>${details.trim().replace(/\n/g, '<br>')}</p>`,
+          attachments: serializedAttachments.length > 0 ? serializedAttachments : undefined,
           date,
           createdAt: now,
           updatedAt: now
@@ -286,6 +293,16 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({
               className="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
           </div>
+
+          {(activeType === 'note' || activeType === 'journal') && (
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+              <AttachmentUploader
+                attachments={attachments}
+                onChange={setAttachments}
+                label="Attach Files"
+              />
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-2">
             <button
