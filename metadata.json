@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix Om-ADY",
+  "description": "The canonical personal operating system for tasks, habits, finance, goals, health, focus, and life management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
