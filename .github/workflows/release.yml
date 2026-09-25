@@ -1,0 +1,57 @@
+name: Build and release ॐ
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Check Node.js, npm and Bun
+        run: |
+          node --version
+          npm --version
+          bun --version
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build Windows release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "ॐ ${{ github.ref_name }}"
+          releaseBody: |
+            ॐ LifeOS ${{ github.ref_name }}
+
+            Windows installer release.
+          releaseDraft: false
+          prerelease: false
+          args: "--target x86_64-pc-windows-msvc"
