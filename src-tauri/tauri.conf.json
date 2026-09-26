@@ -21,24 +21,10 @@
         "fullscreen": false,
         "maximized": true,
         "label": "main"
-      },
-      {
-        "label": "widget",
-        "title": "Om-LifeOS Widget",
-        "url": "/?view=widget",
-        "width": 380,
-        "height": 580,
-        "minWidth": 320,
-        "minHeight": 300,
-        "resizable": false,
         "transparent": true,
         "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "shadow": false,
-        "visible": false,
-        "focus": false
-      }
+        "shadow": false
+      },
     ],
     "security": {
       "csp": null
