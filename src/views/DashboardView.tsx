@@ -1,8 +1,8 @@
 import React from 'react';
 import {
   CheckSquare, Target, Repeat, DollarSign,
-  TrendingUp, ArrowUpRight, ArrowDownRight, Sparkles,
-  BookOpen, Bell, Award, User, ShieldCheck, Calendar, ArrowRight
+  ArrowUpRight, ArrowDownRight, Sparkles,
+  BookOpen, Bell, ArrowRight
 } from 'lucide-react';
 import {
   Task, Goal, Routine, Habit, HabitLog, FinanceTransaction,

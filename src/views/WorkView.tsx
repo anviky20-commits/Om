@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Briefcase, BookOpen, Users, Plus, CheckCircle2, Trash2, Award, Edit3, X, Calendar } from 'lucide-react';
+import { Briefcase, BookOpen, Users, Trash2, Award, Edit3, X, Calendar } from 'lucide-react';
 import { WorkProject, LearningItem, Meeting, WorkResponsibility, Skill, Course } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { ConfirmModal } from '../components/ConfirmModal';

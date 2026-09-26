@@ -10,15 +10,14 @@ import {
   Trash2,
   Sparkles,
   Info,
-  Sliders,
-  RotateCcw
+  Sliders
 } from 'lucide-react';
 import {
   CALCULATOR_CATALOG,
   CALC_UNIT_FACTORS,
   NP_UNITS
 } from '../lib/calculatorEngine';
-import { ALL_TOOL_CONFIGS, getToolConfig } from '../lib/calculatorConfigIndex';
+import { getToolConfig } from '../lib/calculatorConfigIndex';
 import { InteractiveKeypad } from '../components/InteractiveKeypad';
 import { CalcHistoryItem } from '../types';
 import { storage, generateUUID } from '../lib/storage';

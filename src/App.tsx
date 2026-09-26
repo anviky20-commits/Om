@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Window } from '@tauri-apps/api/window';
 import {
   NavModule, AppState, Task, Goal, Milestone, Strategy, KPI, Mission,
   Routine, Habit, HabitLog, FinanceAccount, FinanceTransaction, Loan,
@@ -22,8 +21,6 @@ import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { BsDateModal } from './components/BsDateModal';
 import { MultiUserModal } from './components/MultiUserModal';
 import { ComputerFolderBackupModal } from './components/ComputerFolderBackupModal';
-import { TransparentWidget } from './components/TransparentWidget';
-import { WidgetGuideModal } from './components/WidgetGuideModal';
 
 // Views
 import { DashboardView } from './views/DashboardView';
@@ -55,38 +52,10 @@ export default function App() {
   const [isBsModalOpen, setIsBsModalOpen] = useState(false);
   const [isMultiUserOpen, setIsMultiUserOpen] = useState(false);
   const [isComputerBackupModalOpen, setIsComputerBackupModalOpen] = useState(false);
-  const [isWidgetGuideOpen, setIsWidgetGuideOpen] = useState(false);
-  const [isFloatingWidgetActive, setIsFloatingWidgetActive] = useState<boolean>(() => {
-    return localStorage.getItem('om_widget_active') === 'true';
+  const [isTransparent, setIsTransparent] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('om_clear_transparent') === 'true';
   });
-
-  const handleToggleWidget = () => {
-    setIsFloatingWidgetActive(prev => {
-      const next = !prev;
-      localStorage.setItem('om_widget_active', String(next));
-      if (next) showToast('✨ Transparent Widget Activated');
-      return next;
-    });
-  };
-
-  const handleLaunchPopupWidget = async () => {
-    try {
-      const widget = await Window.getByLabel('widget');
-
-      if (!widget) {
-        showToast('⚠️ Desktop Widget window is not available');
-        return;
-      }
-
-      await widget.show();
-      await widget.setFocus();
-
-      showToast('✨ Desktop Widget opened');
-    } catch (error) {
-      console.error('Failed to open desktop widget:', error);
-      showToast('⚠️ Could not open Desktop Widget');
-    }
-  };
 
   // Entities state
   const [appSettings, setAppSettings] = useState<AppState | undefined>();
@@ -339,12 +308,34 @@ export default function App() {
     document.documentElement.style.setProperty('--color-brand', brandColor);
   }, [theme, appSettings?.accentColor]);
 
-  // Keyboard Shortcuts (⌘K for search, ⌘C for quick capture)
+  // Sync clear transparency mode with HTML root
+  useEffect(() => {
+    if (isTransparent) {
+      document.documentElement.setAttribute('data-transparent', 'true');
+    } else {
+      document.documentElement.removeAttribute('data-transparent');
+    }
+  }, [isTransparent]);
+
+  const toggleTransparent = () => {
+    setIsTransparent(prev => {
+      const next = !prev;
+      localStorage.setItem('om_clear_transparent', String(next));
+      showToast(next ? '👁️ Transparent Mode: ON' : 'Solid Mode: ON');
+      return next;
+    });
+  };
+
+  // Keyboard Shortcuts (⌘K for search, Alt+T for transparent)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setIsSearchOpen(prev => !prev);
+      }
+      if ((e.altKey && e.key.toLowerCase() === 't') || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't')) {
+        e.preventDefault();
+        toggleTransparent();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -418,46 +409,13 @@ export default function App() {
   const openTasksCount = tasks.filter(t => !t.done).length;
   const categoriesList = appSettings?.noteCategories || ['General', 'Strategy', 'Projects', 'Finance', 'Ideas'];
 
-  // Check if running in dedicated widget window (e.g. Tauri widget or browser popup)
-  const isDedicatedWidgetWindow = typeof window !== 'undefined' && (
-    new URLSearchParams(window.location.search).get('widget_mode') === 'true' ||
-    new URLSearchParams(window.location.search).get('view') === 'widget'
-  );
-
-  if (isDedicatedWidgetWindow) {
-    return (
-      <div className="min-h-screen w-full bg-transparent p-2 select-none flex items-center justify-center">
-        <TransparentWidget
-          tasks={tasks}
-          habits={habits}
-          habitLogs={habitLogs}
-          finance={financeTransactions}
-          notes={notes}
-          dailyPlanner={appSettings?.dailyPlanner}
-          onToggleTask={handleToggleTask}
-          onLogHabit={handleLogHabit}
-          onCloseWidget={async () => {
-            const widget = await Window.getByLabel('widget');
-
-            if (widget) {
-              await widget.hide();
-            }
-          }}
-          onOpenApp={async () => {
-            const main = await Window.getByLabel('main');
-
-            if (main) {
-              await main.show();
-              await main.setFocus();
-            }
-          }}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 font-sans text-slate-900 selection:bg-indigo-500 selection:text-white dark:bg-slate-950 dark:text-slate-100">
+    <div
+      data-app-root="true"
+      className={`flex min-h-screen flex-col font-sans text-slate-900 selection:bg-indigo-500 selection:text-white dark:text-slate-100 ${
+        isTransparent ? 'bg-transparent' : 'bg-slate-50 dark:bg-slate-950'
+      }`}
+    >
       {/* Top Bar */}
       <Header
         activeModule={activeModule}
@@ -470,8 +428,6 @@ export default function App() {
         onOpenBsModal={() => setIsBsModalOpen(true)}
         onOpenMultiUser={() => setIsMultiUserOpen(true)}
         onOpenComputerBackup={() => setIsComputerBackupModalOpen(true)}
-        onOpenWidgetGuide={() => setIsWidgetGuideOpen(true)}
-        isWidgetActive={isFloatingWidgetActive}
         theme={theme}
         onToggleTheme={toggleTheme}
         profiles={appSettings?.profiles || [{ id: 'default', name: 'Primary Workspace', createdAt: Date.now() }]}
@@ -496,8 +452,6 @@ export default function App() {
           openTasksCount={openTasksCount}
           remindersCount={reminders.filter(r => r.status !== 'done').length}
           onOpenComputerBackup={() => setIsComputerBackupModalOpen(true)}
-          onOpenWidgetModal={() => setIsWidgetGuideOpen(true)}
-          isWidgetActive={isFloatingWidgetActive}
         />
 
         {/* Main Content Viewport - Responsive across Mobile, Tablet, Laptop, and Desktop */}
@@ -681,6 +635,8 @@ export default function App() {
                 onError={msg => showToast(`⚠️ ${msg}`)}
                 theme={theme}
                 onToggleTheme={toggleTheme}
+                isTransparent={isTransparent}
+                onToggleTransparent={toggleTransparent}
               />
             )}
           </div>
@@ -728,40 +684,6 @@ export default function App() {
         onSuccess={showToast}
         onError={msg => showToast(`⚠️ ${msg}`)}
       />
-
-      {/* Windows Desktop Widget Guide & Launcher Modal */}
-      <WidgetGuideModal
-        isOpen={isWidgetGuideOpen}
-        onClose={() => setIsWidgetGuideOpen(false)}
-        onLaunchWidget={() => {
-          setIsFloatingWidgetActive(true);
-          localStorage.setItem('om_widget_active', 'true');
-          showToast('✨ Transparent Widget is now active on your screen');
-        }}
-        onLaunchPopupWidget={handleLaunchPopupWidget}
-      />
-
-      {/* Transparent Floating Windows Widget */}
-      {isFloatingWidgetActive && (
-        <TransparentWidget
-          tasks={tasks}
-          habits={habits}
-          habitLogs={habitLogs}
-          finance={financeTransactions}
-          notes={notes}
-          dailyPlanner={appSettings?.dailyPlanner}
-          onToggleTask={handleToggleTask}
-          onLogHabit={handleLogHabit}
-          onCloseWidget={() => {
-            setIsFloatingWidgetActive(false);
-            localStorage.setItem('om_widget_active', 'false');
-            showToast('Widget closed. Reopen anytime from Sidebar or Actions menu.');
-          }}
-          onOpenApp={() => {
-            window.focus?.();
-          }}
-        />
-      )}
 
       {/* Toast Notification */}
       {toastMessage && (

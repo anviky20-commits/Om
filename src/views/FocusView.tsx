@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Play, Pause, RotateCcw, Check, Sparkles, Volume2,
-  VolumeX, Clock, Target, CheckSquare, Award, ArrowRight
+  VolumeX, Clock, Target
 } from 'lucide-react';
 import { FocusSession, Task, Goal } from '../types';
 import { storage, generateUUID } from '../lib/storage';

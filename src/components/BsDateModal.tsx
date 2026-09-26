@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, ArrowRightLeft, Check } from 'lucide-react';
+import { X, Calendar } from 'lucide-react';
 import { adToBs, bsToAd, getTodayIso, BsDateResult, AdDateResult, OM_BS_MONTHS_NE, OM_BS_MONTHS_EN } from '../lib/nepaliDate';
 
 interface BsDateModalProps {

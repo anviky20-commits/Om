@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Delete, RotateCcw, Check, Sparkles } from 'lucide-react';
+import { Delete, Check } from 'lucide-react';
 import { calculatorEngine } from '../lib/calculatorEngine';
 
 interface InteractiveKeypadProps {

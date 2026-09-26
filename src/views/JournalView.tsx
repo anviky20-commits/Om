@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
-  BookOpen, Calendar, Trash2, Edit3, Bold, Italic, Underline,
-  List, Smile, Zap, Sparkles, Copy, Check, Search
+  Calendar, Trash2, Edit3, Bold, Italic, Underline,
+  List, Copy, Check, Search
 } from 'lucide-react';
 import { JournalEntry } from '../types';
 import { storage, generateUUID } from '../lib/storage';

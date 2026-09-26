@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import {
-  X, Users, UserPlus, Check, Laptop, ShieldCheck, Key,
-  Mail, Lock, Sparkles, RefreshCw, Download, Upload,
-  Copy, LogIn, LogOut, CheckCircle2, AlertCircle, HardDrive
+  X, Users, UserPlus, Check, Laptop, ShieldCheck,
+  Mail, RefreshCw, Download, Upload,
+  Copy, HardDrive
 } from 'lucide-react';
 import { UserProfile, AppState } from '../types';
 import { storage, generateUUID } from '../lib/storage';

@@ -1,4 +1,4 @@
-import { CALC_UNIT_FACTORS, NP_UNITS, calculatorEngine } from './calculatorEngine';
+import { calculatorEngine } from './calculatorEngine';
 
 export interface ToolField {
   label: string;

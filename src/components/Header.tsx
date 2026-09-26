@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Zap, Moon, Sun, Users, Calendar, ChevronDown, Check, Clock, HardDrive, Layers } from 'lucide-react';
+import { Search, Plus, Zap, Moon, Sun, Users, Calendar, ChevronDown, Check, Clock, HardDrive } from 'lucide-react';
 import { NavModule, UserProfile } from '../types';
 import { adToBs, getTodayIso } from '../lib/nepaliDate';
 
@@ -11,8 +11,6 @@ interface HeaderProps {
   onOpenBsModal: () => void;
   onOpenMultiUser: () => void;
   onOpenComputerBackup?: () => void;
-  onOpenWidgetGuide?: () => void;
-  isWidgetActive?: boolean;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   profiles: UserProfile[];
@@ -28,8 +26,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenBsModal,
   onOpenMultiUser,
   onOpenComputerBackup,
-  onOpenWidgetGuide,
-  isWidgetActive,
   theme,
   onToggleTheme,
   profiles,
@@ -287,26 +283,11 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <span>👥</span> Multi-User & Pairing
                 </button>
-                {onOpenWidgetGuide && (
-                  <button
-                    type="button"
-                    onClick={() => { onOpenWidgetGuide(); setIsActionsOpen(false); }}
-                    className="flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-xs font-semibold text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950/40 cursor-pointer border-t border-slate-100 dark:border-slate-800 mt-1 pt-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-3.5 w-3.5 text-purple-500" />
-                      <span>Transparent Widget</span>
-                    </div>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/60 font-bold uppercase">
-                      {isWidgetActive ? 'ACTIVE' : 'GLASS'}
-                    </span>
-                  </button>
-                )}
                 {onOpenComputerBackup && (
                   <button
                     type="button"
                     onClick={() => { onOpenComputerBackup(); setIsActionsOpen(false); }}
-                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/40 cursor-pointer"
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/40 cursor-pointer border-t border-slate-100 dark:border-slate-800 mt-1 pt-2"
                   >
                     <HardDrive className="h-3.5 w-3.5 text-indigo-500" />
                     <span>Computer Folder Backup</span>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Folder, FolderOpen, FileText, FileCode, CheckCircle2, ChevronDown,
-  ChevronUp, ChevronRight, Search, Layers, Sparkles, FolderTree, X, Filter
+  Folder, FolderOpen, FileText, FileCode, ChevronDown,
+  ChevronUp, ChevronRight, Search, Layers, FolderTree, X
 } from 'lucide-react';
 
 export interface DomainFileSpec {

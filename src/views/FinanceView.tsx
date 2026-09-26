@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  DollarSign, Plus, ArrowUpRight, ArrowDownRight, ArrowRightLeft,
-  ShieldCheck, Trash2, TrendingUp, PiggyBank, Briefcase, Landmark,
-  Calendar, Check, Download, AlertCircle, FileText
+  DollarSign, Plus, ArrowUpRight,
+  ShieldCheck, Trash2, TrendingUp, Landmark,
+  Download
 } from 'lucide-react';
 import {
   FinanceAccount, FinanceTransaction, Loan, LoanPayment,

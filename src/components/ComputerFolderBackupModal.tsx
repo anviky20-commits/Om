@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Folder, FolderCheck, HardDrive, RefreshCw, Download, Check, AlertCircle,
-  X, ShieldCheck, ArrowRight, FileText, CheckCircle2, ChevronRight,
-  ExternalLink, Layers, Sparkles, Database
+  X, CheckCircle2
 } from 'lucide-react';
 import {
   isFileSystemAccessSupported,

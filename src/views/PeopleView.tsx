@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Plus, Phone, Calendar, MessageSquare, Trash2 } from 'lucide-react';
+import { Plus, Phone, Calendar, Trash2 } from 'lucide-react';
 import { Person, Interaction } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 

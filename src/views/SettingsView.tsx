@@ -1,23 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Settings, Download, Upload, FileText, FileSpreadsheet,
-  FileCode, Database, RefreshCw, Trash2, Users, Bell, ShieldCheck,
-  Monitor, Palette, Copy, Check, Folder, FolderCheck, HardDrive,
-  Layers, CheckCircle2, AlertCircle, ChevronRight, Globe
+  FileCode, Database, RefreshCw, Trash2, Users,
+  Monitor, Palette, Copy, Check,
+  CheckCircle2, Globe, Eye
 } from 'lucide-react';
 import { storage, exportToCsv, exportToDocx, exportToXlsx, exportToPdf, exportToCompleteHtml, generateUUID } from '../lib/storage';
-import {
-  isFileSystemAccessSupported,
-  getConnectedFolderInfo,
-  connectComputerFolder,
-  disconnectComputerFolder,
-  syncAllFilesToComputerFolder,
-  exportAllFilesAsZip,
-  FolderSyncMeta
-} from '../lib/computerFolderSync';
 import { AppState, UserProfile } from '../types';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { ComputerSubfoldersViewer } from '../components/ComputerSubfoldersViewer';
 
 interface SettingsViewProps {
   settings?: AppState;
@@ -26,6 +16,8 @@ interface SettingsViewProps {
   onError: (msg: string) => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
+  isTransparent?: boolean;
+  onToggleTransparent?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -34,9 +26,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onSuccess,
   onError,
   theme,
-  onToggleTheme
+  onToggleTheme,
+  isTransparent,
+  onToggleTransparent,
 }) => {
-  const [activeTab, setActiveTab] = useState<'system' | 'workspaces' | 'exports' | 'computer'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'workspaces' | 'exports'>('system');
   const [newProfileName, setNewProfileName] = useState('');
   const [storageStats, setStorageStats] = useState({ usage: 0, quota: 0, percent: 0, level: 'healthy' });
   const [integrityStats, setIntegrityStats] = useState<{ checked: number; issues: number; repaired: number }>({ checked: 0, issues: 0, repaired: 0 });
@@ -54,98 +48,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [pairCode, setPairCode] = useState(settings?.computerPairCode || '');
   const [isConnected, setIsConnected] = useState(settings?.computerConnected || false);
   const [copiedCode, setCopiedCode] = useState(false);
-
-  // Computer Folder Direct Sync state
-  const isFolderApiSupported = isFileSystemAccessSupported();
-  const [folderMeta, setFolderMeta] = useState<FolderSyncMeta>({
-    isConnected: false,
-    folderName: null,
-    connectedAt: null,
-    lastBackupAt: null,
-    lastFileCount: null,
-    autoSync: false,
-    hasPermission: false
-  });
-  const [isFolderSyncing, setIsFolderSyncing] = useState(false);
-  const [folderSyncProgress, setFolderSyncProgress] = useState('');
-  const [folderSyncPercent, setFolderSyncPercent] = useState(0);
-  const [isFolderZipping, setIsFolderZipping] = useState(false);
-
-  const loadFolderMeta = async () => {
-    const info = await getConnectedFolderInfo();
-    setFolderMeta(info);
-  };
-
-  useEffect(() => {
-    loadFolderMeta();
-  }, []);
-
-  const handleRunFolderSync = async () => {
-    setIsFolderSyncing(true);
-    setFolderSyncPercent(0);
-    setFolderSyncProgress('Preparing files for domain subfolders...');
-
-    try {
-      const res = await syncAllFilesToComputerFolder((msg, current, total) => {
-        setFolderSyncProgress(msg);
-        setFolderSyncPercent(Math.round((current / total) * 100));
-      });
-
-      if (res.success) {
-        onSuccess(`✓ Successfully saved ${res.fileCount} files into "${res.folderName}" across all ${res.subfolders.length} subfolders.`);
-        await loadFolderMeta();
-      } else if (res.error) {
-        onError(res.error);
-      }
-    } catch (err: any) {
-      onError(err.message);
-    } finally {
-      setIsFolderSyncing(false);
-    }
-  };
-
-  const handleSelectComputerFolder = async () => {
-    try {
-      const res = await connectComputerFolder();
-      if (res.success) {
-        onSuccess(`Connected to computer folder: "${res.folderName}"! Saving all 12 domain subfolders now...`);
-        await loadFolderMeta();
-        await handleRunFolderSync();
-      } else if (res.error && res.error !== 'Folder selection was cancelled.') {
-        onError(res.error);
-      }
-    } catch (e: any) {
-      onError(e.message);
-    }
-  };
-
-  const handleDisconnectFolder = async () => {
-    await disconnectComputerFolder();
-    await loadFolderMeta();
-    onSuccess('Disconnected computer backup folder.');
-  };
-
-  const handleDownloadZipPackage = async () => {
-    setIsFolderZipping(true);
-    setFolderSyncProgress('Packaging subfolders into ZIP...');
-    try {
-      const blob = await exportAllFilesAsZip((msg) => {
-        setFolderSyncProgress(msg);
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Om-LifeOS-MultiFolder-Backup-${new Date().toISOString().slice(0, 10)}.zip`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      onSuccess('Complete multi-folder backup package (.zip) downloaded');
-    } catch (e: any) {
-      onError(e.message);
-    } finally {
-      setIsFolderZipping(false);
-      setFolderSyncProgress('');
-    }
-  };
 
   useEffect(() => {
     storage.getStorageEstimate().then(setStorageStats);
@@ -396,7 +298,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* Settings Navigation Tabs */}
-      <div className="flex p-1.5 gap-1.5 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/90 dark:border-slate-700/70 overflow-x-auto no-scrollbar shadow-2xs">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1.5 w-full rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/90 dark:border-slate-700/70 shadow-2xs">
         {[
           {
             id: 'system',
@@ -415,12 +317,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             label: 'Data Exports & Snapshot',
             icon: Download,
             badge: null
-          },
-          {
-            id: 'computer',
-            label: 'Computer Folder Backup',
-            icon: HardDrive,
-            badge: folderMeta.isConnected ? 'Connected' : null
           }
         ].map(tab => {
           const Icon = tab.icon;
@@ -430,7 +326,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 rounded-xl px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all duration-150 cursor-pointer ${
+              className={`w-full flex items-center justify-center gap-2 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold tracking-normal transition-all duration-150 cursor-pointer text-center ${
                 isActive
                   ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white ring-1 ring-slate-200/60 dark:ring-slate-700/60'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60'
@@ -441,16 +337,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               }`} />
               <span className="leading-snug">{tab.label}</span>
               {tab.badge && (
-                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                  tab.badge === 'Connected'
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-                    : isActive
+                <span className={`inline-flex items-center justify-center min-w-[18px] px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                  isActive
                     ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
                     : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
                 }`}>
-                  {tab.badge === 'Connected' && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  )}
                   {tab.badge}
                 </span>
               )}
@@ -478,7 +369,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <button
                   type="button"
                   onClick={theme === 'dark' ? onToggleTheme : undefined}
-                  className={`rounded-lg px-3 py-1 font-semibold transition-all ${
+                  className={`rounded-lg px-3 py-1 font-semibold transition-all cursor-pointer ${
                     theme === 'light' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'
                   }`}
                 >
@@ -487,12 +378,66 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <button
                   type="button"
                   onClick={theme === 'light' ? onToggleTheme : undefined}
-                  className={`rounded-lg px-3 py-1 font-semibold transition-all ${
+                  className={`rounded-lg px-3 py-1 font-semibold transition-all cursor-pointer ${
                     theme === 'dark' ? 'bg-slate-700 shadow-sm text-white' : 'text-slate-500'
                   }`}
                 >
                   ☾ Dark
                 </button>
+              </div>
+            </div>
+
+            {/* Clear Transparent Glass Mode Setting */}
+            <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">Clear Transparent Glass Mode</span>
+                    <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                      isTransparent
+                        ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                    }`}>
+                      {isTransparent ? (
+                        <>
+                          <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                          <span>Enabled</span>
+                        </>
+                      ) : (
+                        <span>Solid</span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    See-through glassmorphic backdrop for desktop & wallpaper integration (Shortcut: <kbd className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700">Alt+T</kbd>)
+                  </div>
+                </div>
+
+                <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1 text-xs dark:border-slate-700 dark:bg-slate-800 shrink-0">
+                  <button
+                    type="button"
+                    onClick={isTransparent ? onToggleTransparent : undefined}
+                    className={`flex items-center gap-1 rounded-lg px-3 py-1 font-semibold transition-all cursor-pointer ${
+                      !isTransparent
+                        ? 'bg-white shadow-sm text-slate-900 dark:bg-slate-700 dark:text-white'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <span>Solid</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={!isTransparent ? onToggleTransparent : undefined}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1 font-semibold transition-all cursor-pointer ${
+                      isTransparent
+                        ? 'bg-indigo-600 shadow-sm text-white'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Transparent</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -603,143 +548,127 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </button>
             </div>
           </div>
-
-          {/* Windows Transparent Desktop Widget Card (12 cols) */}
-          <div className="lg:col-span-12 rounded-3xl border border-purple-200 bg-linear-to-r from-purple-50/60 to-indigo-50/60 p-6 shadow-sm dark:border-purple-900/50 dark:from-purple-950/20 dark:to-indigo-950/20 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-600 text-white font-bold shadow-md shadow-purple-600/20">
-                  <Layers className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Windows Transparent Desktop Widget</span>
-                    <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-950/80 dark:text-purple-300">
-                      LIVE REALTIME SYNC
-                    </span>
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Transparent acrylic widget pinned to desktop that connects directly with Om-LifeOS data
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    localStorage.setItem('om_widget_active', 'true');
-                    window.dispatchEvent(new Event('storage'));
-                    onSuccess('✨ Transparent Floating Widget Activated on screen!');
-                    onRefresh();
-                  }}
-                  className="rounded-xl bg-purple-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-purple-500 cursor-pointer"
-                >
-                  Activate On-Screen Widget
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.open(
-                      `${window.location.origin}${window.location.pathname}?widget_mode=true`,
-                      'OmLifeOSWidget',
-                      'width=380,height=580,resizable=yes,scrollbars=no,status=no,toolbar=no'
-                    );
-                    onSuccess('Opened Transparent Widget in standalone popout window');
-                  }}
-                  className="rounded-xl border border-purple-300 bg-white px-3.5 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:bg-slate-800 dark:text-purple-300 cursor-pointer"
-                >
-                  Open Popout Window
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs text-slate-600 dark:text-slate-300">
-              <div className="p-3 rounded-2xl bg-white/70 dark:bg-slate-900/60 border border-purple-100 dark:border-purple-900/30">
-                <div className="font-bold text-slate-900 dark:text-white">Full Transparency & Blur</div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Opacity slider (20% to 100%) aur acrylic blur levels ke sath transparent glass look.
-                </div>
-              </div>
-              <div className="p-3 rounded-2xl bg-white/70 dark:bg-slate-900/60 border border-purple-100 dark:border-purple-900/30">
-                <div className="font-bold text-slate-900 dark:text-white">Direct Live Data Connection</div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Tasks, daily habits, Bikram Sambat date, notes aur finance automatic update hote hain.
-                </div>
-              </div>
-              <div className="p-3 rounded-2xl bg-white/70 dark:bg-slate-900/60 border border-purple-100 dark:border-purple-900/30">
-                <div className="font-bold text-slate-900 dark:text-white">Windows & Web Ready</div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Browser me floating draggable widget ya Tauri Windows app me borderless transparent window.
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
       {/* Tab: Workspaces */}
       {activeTab === 'workspaces' && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-7 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 pb-3 dark:border-slate-800">
-              Active Workspaces
-            </h2>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <div className="lg:col-span-7 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 pb-3 dark:border-slate-800">
+                Active Workspaces
+              </h2>
 
-            <div className="mt-4 space-y-2.5">
-              {(settings?.profiles || []).map(p => (
-                <div
-                  key={p.id}
-                  className={`flex items-center justify-between rounded-2xl p-4 border transition-colors ${
-                    p.id === settings?.profileId
-                      ? 'border-indigo-500 bg-indigo-50/50 dark:border-indigo-500/50 dark:bg-indigo-950/40'
-                      : 'border-slate-100 dark:border-slate-800'
-                  }`}
-                >
-                  <div>
-                    <div className="text-xs font-bold text-slate-900 dark:text-white">{p.name}</div>
-                    <div className="text-[10px] text-slate-400">Created {new Date(p.createdAt).toLocaleDateString()}</div>
+              <div className="mt-4 space-y-2.5">
+                {(settings?.profiles || []).map(p => (
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between rounded-2xl p-4 border transition-colors ${
+                      p.id === settings?.profileId
+                        ? 'border-indigo-500 bg-indigo-50/50 dark:border-indigo-500/50 dark:bg-indigo-950/40'
+                        : 'border-slate-100 dark:border-slate-800'
+                    }`}
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white">{p.name}</div>
+                      <div className="text-[10px] text-slate-400">Created {new Date(p.createdAt).toLocaleDateString()}</div>
+                    </div>
+
+                    {p.id === settings?.profileId ? (
+                      <span className="rounded-full bg-indigo-600 px-3 py-0.5 text-[10px] font-semibold text-white">
+                        Current
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSwitchProfile(p.id)}
+                        className="rounded-xl border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
+                      >
+                        Switch Workspace
+                      </button>
+                    )}
                   </div>
+                ))}
+              </div>
+            </div>
 
-                  {p.id === settings?.profileId ? (
-                    <span className="rounded-full bg-indigo-600 px-3 py-0.5 text-[10px] font-semibold text-white">
-                      Current
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleSwitchProfile(p.id)}
-                      className="rounded-xl border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
-                    >
-                      Switch Workspace
-                    </button>
-                  )}
+            <div className="lg:col-span-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 pb-3 dark:border-slate-800">
+                Create New Workspace
+              </h2>
+              <form onSubmit={handleCreateProfile} className="mt-4 space-y-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Workspace Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newProfileName}
+                    onChange={e => setNewProfileName(e.target.value)}
+                    placeholder="e.g. Venture Operations, Family"
+                    className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800"
+                  />
                 </div>
-              ))}
+                <button
+                  type="submit"
+                  className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500"
+                >
+                  + Create Workspace
+                </button>
+              </form>
             </div>
           </div>
 
-          <div className="lg:col-span-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 pb-3 dark:border-slate-800">
-              Create New Workspace
-            </h2>
-            <form onSubmit={handleCreateProfile} className="mt-4 space-y-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Workspace Name</label>
-                <input
-                  type="text"
-                  required
-                  value={newProfileName}
-                  onChange={e => setNewProfileName(e.target.value)}
-                  placeholder="e.g. Venture Operations, Family"
-                  className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800"
-                />
+          {/* Local Network Peer Pairing */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
+              <Monitor className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Local Network Peer Pairing</h2>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Generate a one-time 6-digit peer pairing code to link this browser instance with another computer on your local network.
+            </p>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center font-mono text-2xl font-extrabold tracking-widest text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                {pairCode || '— — — — — —'}
               </div>
               <button
-                type="submit"
-                className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500"
+                type="button"
+                onClick={handleGeneratePairCode}
+                className="rounded-xl bg-indigo-600 px-4 py-3 text-xs font-semibold text-white hover:bg-indigo-500 cursor-pointer"
               >
-                + Create Workspace
+                Generate Code
               </button>
-            </form>
+              {pairCode && (
+                <button
+                  type="button"
+                  onClick={handleCopyPairCode}
+                  className="rounded-xl border border-slate-200 p-3 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 cursor-pointer"
+                  title="Copy code"
+                >
+                  {copiedCode ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
+              <div className="text-xs text-slate-600 dark:text-slate-300 font-semibold">
+                Connection Status: {isConnected ? <span className="text-emerald-500">Connected</span> : <span className="text-slate-400">Offline</span>}
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleComputerConnect}
+                className={`rounded-xl px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                  isConnected
+                    ? 'border border-rose-300 text-rose-600 hover:bg-rose-50'
+                    : 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-700'
+                }`}
+              >
+                {isConnected ? 'Disconnect' : 'Connect to Computer'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -747,55 +676,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Tab: Backup & Multi-Format Exports */}
       {activeTab === 'exports' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Complete Standalone HTML Application */}
-          <div className="lg:col-span-12 rounded-3xl border border-indigo-200/90 bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/40 p-6 shadow-sm dark:border-indigo-900/60 dark:from-indigo-950/30 dark:via-slate-900 dark:to-slate-900 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4 dark:border-slate-800">
-              <div className="flex items-center gap-3.5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 shrink-0">
-                  <Globe className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Complete Standalone HTML App (.html)</span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-                      Single-File Offline
-                    </span>
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Download this entire app as a single self-contained HTML file with all your live tasks, notes, journal, finances, and goals embedded. Opens directly in any browser on any phone or PC without internet or server.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleExportCompleteHtml}
-                  className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 active:scale-98 transition-all cursor-pointer"
-                  title="Export live user data into standalone single-file HTML"
-                >
-                  <Globe className="h-4 w-4" />
-                  <span>Export Live Data HTML</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-600 dark:text-slate-400 pt-1">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Runs 100% offline on any device (double-click to open)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Embedded search, light/dark theme, interactive tasks</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>One-click full JSON backup & restorer built inside</span>
-              </div>
-            </div>
-          </div>
-
           {/* Full Atomic Backup */}
           <div className="lg:col-span-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
@@ -913,178 +793,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <Trash2 className="h-3.5 w-3.5" />
               <span>Reset Entire Database</span>
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Tab: Connect to Computer & Folder Backup */}
-      {activeTab === 'computer' && (
-        <div className="space-y-6 max-w-4xl">
-          {/* Section 1: Direct Computer Folder Backup */}
-          <div className="rounded-3xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/40 via-white to-slate-50 p-6 shadow-sm dark:border-indigo-900/40 dark:from-indigo-950/20 dark:via-slate-900 dark:to-slate-900 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-sm shadow-indigo-600/30">
-                  <HardDrive className="h-5 w-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Direct Computer Folder Backup</span>
-                    {folderMeta.isConnected ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Connected
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                        Not connected
-                      </span>
-                    )}
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Connect your device backup directly to a folder on your computer. When you save, all files are saved automatically across organized domain subfolders.
-                  </p>
-                </div>
-              </div>
-
-              {/* Status and Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2">
-                {folderMeta.isConnected ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={isFolderSyncing}
-                      onClick={handleRunFolderSync}
-                      className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-50 cursor-pointer"
-                    >
-                      <RefreshCw className={`h-3.5 w-3.5 ${isFolderSyncing ? 'animate-spin' : ''}`} />
-                      <span>{isFolderSyncing ? 'Saving Files...' : 'Sync All Files to Folder'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isFolderSyncing}
-                      onClick={handleSelectComputerFolder}
-                      className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
-                    >
-                      Change Folder
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isFolderSyncing}
-                      onClick={handleDisconnectFolder}
-                      className="rounded-xl border border-rose-200 px-2.5 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer"
-                    >
-                      Disconnect
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleSelectComputerFolder}
-                    disabled={!isFolderApiSupported || isFolderSyncing}
-                    className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-50 cursor-pointer"
-                  >
-                    <FolderCheck className="h-4 w-4" />
-                    <span>Select Computer Folder</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Sync Progress Bar */}
-            {isFolderSyncing && (
-              <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex justify-between text-xs font-medium text-indigo-600 dark:text-indigo-400">
-                  <span className="truncate pr-2">{folderSyncProgress}</span>
-                  <span className="font-mono font-bold">{folderSyncPercent}%</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                  <div
-                    className="h-full rounded-full bg-indigo-600 transition-all duration-200"
-                    style={{ width: `${folderSyncPercent}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Subfolders Architecture - Dropdown Menu inside Target Folder */}
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <ComputerSubfoldersViewer
-                targetFolderName={folderMeta.folderName}
-                isFolderConnected={folderMeta.isConnected}
-                lastBackupAt={folderMeta.lastBackupAt}
-                lastFileCount={folderMeta.lastFileCount}
-                onSelectFolder={handleSelectComputerFolder}
-              />
-            </div>
-
-            {/* Fallback ZIP */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-              <span className="text-slate-500">Need a single portable archive with all subfolders?</span>
-              <button
-                type="button"
-                disabled={isFolderZipping || isFolderSyncing}
-                onClick={handleDownloadZipPackage}
-                className="flex items-center gap-1.5 font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 cursor-pointer"
-              >
-                <Download className="h-3.5 w-3.5" />
-                <span>{isFolderZipping ? 'Generating ZIP...' : 'Download as Multi-Folder .ZIP Package'}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Section 2: Peer Network Computer Pairing */}
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
-              <Monitor className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Local Network Peer Pairing</h2>
-            </div>
-
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Generate a one-time 6-digit peer pairing code to link this browser instance with another computer on your local network.
-            </p>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center font-mono text-2xl font-extrabold tracking-widest text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
-                {pairCode || '— — — — — —'}
-              </div>
-              <button
-                type="button"
-                onClick={handleGeneratePairCode}
-                className="rounded-xl bg-indigo-600 px-4 py-3 text-xs font-semibold text-white hover:bg-indigo-500 cursor-pointer"
-              >
-                Generate Code
-              </button>
-              {pairCode && (
-                <button
-                  type="button"
-                  onClick={handleCopyPairCode}
-                  className="rounded-xl border border-slate-200 p-3 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 cursor-pointer"
-                  title="Copy code"
-                >
-                  {copiedCode ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
-              <div className="text-xs text-slate-600 dark:text-slate-300 font-semibold">
-                Connection Status: {isConnected ? <span className="text-emerald-500">Connected</span> : <span className="text-slate-400">Offline</span>}
-              </div>
-              <button
-                type="button"
-                onClick={handleToggleComputerConnect}
-                className={`rounded-xl px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
-                  isConnected
-                    ? 'border border-rose-300 text-rose-600 hover:bg-rose-50'
-                    : 'bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-700'
-                }`}
-              >
-                {isConnected ? 'Disconnect' : 'Connect to Computer'}
-              </button>
-            </div>
           </div>
         </div>
       )}

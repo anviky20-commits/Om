@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import {
-  Folder, Plus, FileCheck, Shield, Trash2, Receipt, Award, FileText,
-  Upload, Edit3, Download, Paperclip, Eye, Calendar, Check, Search,
-  X, AlertCircle, Sparkles, Tag, CheckCircle2
+  Folder, FileCheck, Shield, Trash2, Receipt, Award, FileText,
+  Upload, Edit3, Download, Paperclip, Search,
+  X
 } from 'lucide-react';
 import {
   ThingItem, DocumentItem, WarrantyItem, ReceiptItem, CertificateItem, ImportantRecordItem

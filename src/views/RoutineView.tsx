@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Plus, Repeat, Clock, Trash2, CheckCircle2,
-  Flame, Calendar, Sparkles, Check
+  Repeat, Clock, Trash2, CheckCircle2,
+  Flame, Check
 } from 'lucide-react';
 import { Routine, Habit, HabitLog } from '../types';
 import { storage, generateUUID } from '../lib/storage';

@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { storage, ENTITY_STORES, SINGLETON_STORES } from './storage';
-import { generateCompleteStandaloneHtml } from './htmlExport';
+import { generateCompleteStandaloneHtml } from './exportHtml';
 
 export interface FolderSyncMeta {
   isConnected: boolean;

@@ -2,7 +2,7 @@ import React from 'react';
 import {
   LayoutDashboard, CheckSquare, Repeat, Target, Timer, FileText,
   BookOpen, Calculator, DollarSign, Heart, Briefcase, Users,
-  Compass, Folder, Settings, X, HardDrive, Layers
+  Compass, Folder, Settings, X, HardDrive
 } from 'lucide-react';
 import { NavModule } from '../types';
 
@@ -14,8 +14,6 @@ interface SidebarProps {
   openTasksCount: number;
   remindersCount: number;
   onOpenComputerBackup?: () => void;
-  onOpenWidgetModal?: () => void;
-  isWidgetActive?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -26,8 +24,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   openTasksCount,
   remindersCount,
   onOpenComputerBackup,
-  onOpenWidgetModal,
-  isWidgetActive,
 }) => {
   const navItems: { id: NavModule; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -138,32 +134,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* Footer info & Windows Desktop Widget / Computer Backup Quick Buttons */}
+        {/* Footer info & Computer Backup Quick Button */}
         <div className="border-t border-slate-100 p-3 space-y-2 text-center dark:border-slate-800/80">
-          {onOpenWidgetModal && (
-            <button
-              type="button"
-              onClick={() => {
-                onOpenWidgetModal();
-                onCloseMobile();
-              }}
-              className="flex w-full items-center justify-between rounded-lg border border-purple-200 bg-purple-50/70 py-1.5 px-2.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 dark:border-purple-900/60 dark:bg-purple-950/40 dark:text-purple-300 dark:hover:bg-purple-900/60 transition-colors cursor-pointer"
-              title="Transparent Windows Desktop Widget"
-            >
-              <div className="flex items-center gap-1.5">
-                <Layers className="h-3.5 w-3.5" />
-                <span>Desktop Widget</span>
-              </div>
-              <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
-                isWidgetActive
-                  ? 'bg-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                  : 'bg-purple-200 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-              }`}>
-                {isWidgetActive ? 'ACTIVE' : 'GLASS'}
-              </span>
-            </button>
-          )}
-
           {onOpenComputerBackup && (
             <button
               type="button"

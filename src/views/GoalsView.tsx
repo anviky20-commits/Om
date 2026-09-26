@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Target, Plus, TrendingUp, ShieldCheck, Flame, Trash2,
-  Flag, Award, Zap, Compass, Quote, FileText, CheckCircle2,
-  Circle, Clock, ChevronRight, Edit3, Check
+  Zap, Check
 } from 'lucide-react';
 import {
   Goal, Milestone, Strategy, KPI, Mission, MentorRule,

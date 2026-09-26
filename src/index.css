@@ -93,3 +93,55 @@
   transform: translateY(-2px);
 }
 
+/* ==========================================================================
+   CLEAR TRANSPARENT MODE
+   Ultra-clean see-through mode activated via Transparent Key
+   ========================================================================== */
+html[data-transparent="true"],
+html[data-transparent="true"] body,
+html[data-transparent="true"] #root,
+html[data-transparent="true"] [data-app-root="true"] {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+html[data-transparent="true"] .bg-slate-50,
+html[data-transparent="true"] .dark\:bg-slate-950 {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* Clear transparent headers and navigation */
+html[data-transparent="true"] header,
+html[data-transparent="true"] aside {
+  background-color: rgba(255, 255, 255, 0.35) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+html.dark[data-transparent="true"] header,
+html.dark[data-transparent="true"] aside {
+  background-color: rgba(15, 23, 42, 0.35) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Clear transparent cards and modules */
+html[data-transparent="true"] .bg-white,
+html[data-transparent="true"] .dark\:bg-slate-900,
+html[data-transparent="true"] .dark\:bg-slate-800 {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+html.dark[data-transparent="true"] .bg-white,
+html.dark[data-transparent="true"] .dark\:bg-slate-900,
+html.dark[data-transparent="true"] .dark\:bg-slate-800 {
+  background-color: rgba(15, 23, 42, 0.3) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+

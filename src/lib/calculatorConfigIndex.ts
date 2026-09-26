@@ -1,7 +1,6 @@
 import { TOOL_CONFIGS, ToolConfig } from './calculatorConfig';
 import { EXTENDED_TOOL_CONFIGS } from './calculatorConfigExtended';
 import { REMAINING_TOOL_CONFIGS } from './calculatorConfigRemaining';
-import { CALCULATOR_CATALOG } from './calculatorEngine';
 
 export const ALL_TOOL_CONFIGS: Record<string, ToolConfig> = {
   ...TOOL_CONFIGS,

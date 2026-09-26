@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Compass, Plus, Heart, Shield, Trash2, ArrowRight } from 'lucide-react';
+import { Compass, Heart, Shield, Trash2 } from 'lucide-react';
 import { ValueItem, SpiritualPractice, Commitment, Habit, NavModule } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 

@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Plus, CheckSquare, Trash2, Calendar, Target, CheckCircle2,
-  Circle, Edit3, Search, Filter, Check, Clock, AlertCircle,
-  Download, FileText, Save, History, Layers, ArrowRight, Sparkles
+  CheckSquare, Trash2, Calendar, Target, CheckCircle2,
+  Circle, Edit3, Search, Filter, Check,
+  Download, Save, History, Layers, ArrowRight
 } from 'lucide-react';
 import { Task, TaskDomain, TaskPriority, DailyPlanner, Goal } from '../types';
 import { storage, generateUUID } from '../lib/storage';

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Heart, Activity, Moon, Droplet, Apple, Calendar, Plus, Trash2,
-  Stethoscope, FileText, Edit3, X, CheckCircle2, Clock
+  Heart, Activity, Moon, Droplet, Calendar, Trash2,
+  Stethoscope, FileText, Edit3, X
 } from 'lucide-react';
 import {
   HealthProfile, HealthMeasurement, SleepRecord, WaterRecord,

@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
-import { Paperclip, File, X, Download, Image as ImageIcon, FileText } from 'lucide-react';
-import { Attachment } from '../types';
+import { Paperclip, File, X, Download, FileText } from 'lucide-react';
 
 export interface StoredAttachmentMeta {
   id: string;

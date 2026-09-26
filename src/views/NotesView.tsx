@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Plus, Search, Tag, Trash2, Edit3, Bold, Italic, Underline,
-  List, Star, Copy, Check, Download, Pin, Filter, X, Maximize2,
-  Calendar, Folder, Sparkles, CheckCircle2, BookOpen, Layers
+  Search, Trash2, Edit3,
+  Star, Copy, Check, Download, Pin, Filter, X,
+  Folder, BookOpen
 } from 'lucide-react';
 import { Note } from '../types';
 import { storage, generateUUID } from '../lib/storage';
