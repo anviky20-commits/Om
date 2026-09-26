@@ -20,11 +20,11 @@
         "resizable": true,
         "fullscreen": false,
         "maximized": true,
-        "label": "main"
+        "label": "main",
         "transparent": true,
         "decorations": false,
         "shadow": false
-      },
+      }
     ],
     "security": {
       "csp": null
