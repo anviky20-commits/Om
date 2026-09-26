@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, CheckSquare, FileText, BookOpen, DollarSign, Target, Bell, User } from 'lucide-react';
+import { X, CheckSquare, FileText, BookOpen, DollarSign, Target, Bell, User, Volume2, Clock } from 'lucide-react';
 import { storage, generateUUID } from '../lib/storage';
 import { Task, Note, JournalEntry, FinanceTransaction, Goal, ReminderItem, Person } from '../types';
 import { AttachmentUploader, StoredAttachmentMeta } from './AttachmentUploader';
+import { alarmAudio, BUILTIN_RINGTONES } from '../lib/alarmAudio';
 
 interface QuickCaptureModalProps {
   isOpen: boolean;
@@ -26,6 +27,12 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({
   const [category, setCategory] = useState('');
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [reminderTime, setReminderTime] = useState(() => {
+    const d = new Date(Date.now() + 30 * 60 * 1000);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  });
+  const [alarmEnabled, setAlarmEnabled] = useState(true);
+  const [reminderRingtone, setReminderRingtone] = useState(alarmAudio.getDefaultRingtoneId());
   const [attachments, setAttachments] = useState<StoredAttachmentMeta[]>([]);
 
   React.useEffect(() => {
@@ -115,17 +122,20 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({
         await storage.put('goals', newGoal);
         onSuccess('🎯 Strategic goal captured');
       } else if (activeType === 'reminder') {
+        const fullDue = `${date}T${reminderTime}`;
         const newRem: ReminderItem = {
           id: generateUUID(),
           title: title.trim(),
-          dueAt: `${date}T09:00`,
+          dueAt: fullDue,
           repeatRule: 'none',
           status: 'open',
+          alarmEnabled,
+          ringtone: reminderRingtone,
           createdAt: now,
           updatedAt: now
         };
         await storage.put('reminders', newRem);
-        onSuccess('⏰ Reminder set');
+        onSuccess(`⏰ Reminder & Alarm scheduled for ${date} at ${reminderTime}`);
       } else if (activeType === 'person') {
         const newPerson: Person = {
           id: generateUUID(),
@@ -277,6 +287,78 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({
                   onChange={e => setDate(e.target.value)}
                   className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
+              </div>
+            </div>
+          )}
+
+          {activeType === 'reminder' && (
+            <div className="space-y-3 p-3 rounded-2xl bg-indigo-50/40 border border-indigo-100 dark:bg-indigo-950/30 dark:border-indigo-900/50">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    Reminder Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={date}
+                    onChange={e => setDate(e.target.value)}
+                    className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    Alarm Time
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={reminderTime}
+                    onChange={e => setReminderTime(e.target.value)}
+                    className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 font-mono text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={alarmEnabled}
+                    onChange={e => setAlarmEnabled(e.target.checked)}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>⏰ Ring Audio Alarm on Time</span>
+                </label>
+
+                {alarmEnabled && (
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={reminderRingtone}
+                      onChange={e => {
+                        setReminderRingtone(e.target.value);
+                        alarmAudio.previewRingtone(e.target.value);
+                      }}
+                      className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-[11px] text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    >
+                      {BUILTIN_RINGTONES.map(r => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                      {alarmAudio.getCustomRingtone() && (
+                        <option value="custom">🎵 Custom Ringtone</option>
+                      )}
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => alarmAudio.previewRingtone(reminderRingtone)}
+                      className="p-1.5 rounded-lg border border-slate-200 bg-white text-indigo-600 hover:bg-indigo-50 dark:border-slate-700 dark:bg-slate-800 dark:text-indigo-400"
+                      title="Preview Tone"
+                    >
+                      <Volume2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

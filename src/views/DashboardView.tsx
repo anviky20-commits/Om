@@ -418,12 +418,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 No pending reminders. All clear!
               </div>
             ) : (
-              activeReminders.map(rem => (
-                <div key={rem.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-3 text-xs sm:text-sm dark:border-slate-800/60">
-                  <span className="font-semibold text-slate-900 dark:text-white">{rem.title}</span>
-                  <span className="font-mono text-xs text-slate-400">{rem.dueAt}</span>
-                </div>
-              ))
+              activeReminders.map(rem => {
+                const isAlarm = rem.alarmEnabled !== false;
+                const timePart = rem.dueAt && rem.dueAt.includes('T') ? rem.dueAt.split('T')[1].slice(0, 5) : '';
+                const datePart = rem.dueAt && rem.dueAt.includes('T') ? rem.dueAt.split('T')[0] : (rem.dueAt || '');
+                return (
+                  <div key={rem.id} className="flex items-center justify-between rounded-xl border border-slate-100 p-3 text-xs sm:text-sm dark:border-slate-800/60 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all">
+                    <div className="flex items-center gap-2.5 truncate pr-2">
+                      <span className="text-base shrink-0">{isAlarm ? '⏰' : '📌'}</span>
+                      <div className="truncate">
+                        <span className="font-semibold text-slate-900 dark:text-white block truncate">{rem.title}</span>
+                        <span className="text-[11px] text-slate-400">
+                          {datePart} {timePart && `at ${timePart}`}
+                        </span>
+                      </div>
+                    </div>
+                    {isAlarm && (
+                      <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400">
+                        Alarm Active
+                      </span>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </section>

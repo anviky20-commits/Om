@@ -21,6 +21,8 @@ import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { BsDateModal } from './components/BsDateModal';
 import { MultiUserModal } from './components/MultiUserModal';
 import { ComputerFolderBackupModal } from './components/ComputerFolderBackupModal';
+import { AlarmTriggerModal } from './components/AlarmTriggerModal';
+import { alarmService, TriggeredAlarmData } from './lib/alarmService';
 
 // Views
 import { DashboardView } from './views/DashboardView';
@@ -52,6 +54,7 @@ export default function App() {
   const [isBsModalOpen, setIsBsModalOpen] = useState(false);
   const [isMultiUserOpen, setIsMultiUserOpen] = useState(false);
   const [isComputerBackupModalOpen, setIsComputerBackupModalOpen] = useState(false);
+  const [activeTriggeredAlarm, setActiveTriggeredAlarm] = useState<TriggeredAlarmData | null>(null);
   const [isTransparent, setIsTransparent] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('om_clear_transparent') === 'true';
@@ -292,6 +295,11 @@ export default function App() {
   useEffect(() => {
     seedInitialDataIfEmpty().then(() => {
       loadAllData();
+    });
+
+    // Subscribe to scheduled alarms & reminder triggers
+    alarmService.onAlarmTrigger((alarmData) => {
+      setActiveTriggeredAlarm(alarmData);
     });
   }, [loadAllData]);
 
@@ -683,6 +691,22 @@ export default function App() {
         onClose={() => setIsComputerBackupModalOpen(false)}
         onSuccess={showToast}
         onError={msg => showToast(`⚠️ ${msg}`)}
+      />
+
+      {/* Real-time Global Alarm Trigger Modal */}
+      <AlarmTriggerModal
+        alarm={activeTriggeredAlarm}
+        onDismiss={async () => {
+          await alarmService.dismissAlarm();
+          setActiveTriggeredAlarm(null);
+          loadAllData();
+        }}
+        onSnooze={async (mins = 5) => {
+          await alarmService.snoozeAlarm(mins);
+          setActiveTriggeredAlarm(null);
+          showToast(`⏰ Alarm snoozed for ${mins} minutes`);
+          loadAllData();
+        }}
       />
 
       {/* Toast Notification */}

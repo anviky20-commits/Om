@@ -563,6 +563,8 @@ export interface ReminderItem {
   linkedType?: string | null;
   linkedId?: string | null;
   lastNotifiedAt?: number;
+  alarmEnabled?: boolean;
+  ringtone?: string;
   createdAt: number;
   updatedAt: number;
 }
