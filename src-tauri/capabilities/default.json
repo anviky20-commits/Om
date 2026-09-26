@@ -4,7 +4,6 @@
   "description": "Capability for Om-LifeOS main and desktop widget windows",
   "windows": [
     "main",
-    "widget"
   ],
   "permissions": [
     "core:default",
