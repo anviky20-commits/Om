@@ -3,7 +3,7 @@
   "identifier": "default",
   "description": "Capability for Om-LifeOS main and desktop widget windows",
   "windows": [
-    "main",
+    "main"
   ],
   "permissions": [
     "core:default",
