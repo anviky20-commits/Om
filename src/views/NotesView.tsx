@@ -2,12 +2,14 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Search, Trash2, Edit3,
   Star, Copy, Check, Download, Pin, Filter, X,
-  Folder, BookOpen
+  Folder, BookOpen, Sparkles, Volume2
 } from 'lucide-react';
 import { Note } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AttachmentUploader, AttachmentViewer, StoredAttachmentMeta } from '../components/AttachmentUploader';
+import { NoteRichEditor } from '../components/NoteRichEditor';
+import { globalTextReader } from '../lib/voiceService';
 
 interface NotesViewProps {
   notes: Note[];
@@ -39,10 +41,9 @@ export const NotesView: React.FC<NotesViewProps> = ({
   const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [tags, setTags] = useState('');
   const [colorTheme, setColorTheme] = useState('slate');
-  const [points, setPoints] = useState('');
   const [isPinned, setIsPinned] = useState(false);
   const [editorText, setEditorText] = useState('');
-  const [editorMode, setEditorMode] = useState<'rich' | 'plain'>('plain');
+  const [editorHtml, setEditorHtml] = useState('');
   const [attachments, setAttachments] = useState<StoredAttachmentMeta[]>([]);
   
   // Modal states
@@ -57,11 +58,33 @@ export const NotesView: React.FC<NotesViewProps> = ({
   const [modalCustomCat, setModalCustomCat] = useState('');
   const [modalTags, setModalTags] = useState('');
   const [modalColor, setModalColor] = useState('slate');
-  const [modalPoints, setModalPoints] = useState('');
   const [modalPinned, setModalPinned] = useState(false);
   const [modalContent, setModalContent] = useState('');
-  const [modalEditorMode, setModalEditorMode] = useState<'plain' | 'rich'>('plain');
+  const [modalHtml, setModalHtml] = useState('');
   const [modalAttachments, setModalAttachments] = useState<StoredAttachmentMeta[]>([]);
+  const [isSpeakingNote, setIsSpeakingNote] = useState(false);
+  const [speakingNoteCardId, setSpeakingNoteCardId] = useState<string | null>(null);
+
+  // Toggle read note aloud for individual note card
+  const toggleSpeakNoteCard = (note: Note, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (speakingNoteCardId === note.id) {
+      globalTextReader.stop();
+      setSpeakingNoteCardId(null);
+    } else {
+      globalTextReader.stop();
+      const textToRead = (note.title ? note.title + '. ' : '') + (note.body || note.html?.replace(/<[^>]+>/g, ' ') || '');
+      if (!textToRead.trim()) return;
+      setSpeakingNoteCardId(note.id);
+      globalTextReader.speak(textToRead, {
+        onStateChange: (st) => {
+          if (!st.isSpeaking) {
+            setSpeakingNoteCardId(null);
+          }
+        }
+      });
+    }
+  };
 
   const formRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -133,10 +156,11 @@ export const NotesView: React.FC<NotesViewProps> = ({
     setModalCustomCat('');
     setModalTags(note.tags || '');
     setModalColor(note.color && themePalettes[note.color] ? note.color : 'slate');
-    setModalPoints(note.points || '');
     setModalPinned(Boolean(note.pinned));
     const content = note.body || note.html || '';
+    const htmlContent = note.html || (note.body ? note.body.replace(/\n/g, '<br/>') : '');
     setModalContent(content);
+    setModalHtml(htmlContent);
     const parsedAtts: StoredAttachmentMeta[] = (note.attachments || []).map(a => {
       try {
         return typeof a === 'string' ? JSON.parse(a) : a;
@@ -156,10 +180,11 @@ export const NotesView: React.FC<NotesViewProps> = ({
     setCustomCategoryInput('');
     setTags(note.tags || '');
     setColorTheme(note.color && themePalettes[note.color] ? note.color : 'slate');
-    setPoints(note.points || '');
     setIsPinned(Boolean(note.pinned));
     const content = note.body || note.html || '';
+    const htmlContent = note.html || (note.body ? note.body.replace(/\n/g, '<br/>') : '');
     setEditorText(content);
+    setEditorHtml(htmlContent);
     const parsedAtts: StoredAttachmentMeta[] = (note.attachments || []).map(a => {
       try {
         return typeof a === 'string' ? JSON.parse(a) : a;
@@ -205,7 +230,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
     const finalCategory = customCategoryInput.trim() || category || 'General';
     const now = Date.now();
     const body = editorText;
-    const html = editorText.replace(/\n/g, '<br/>');
+    const html = editorHtml || (editorText ? editorText.replace(/\n/g, '<br/>') : '');
 
     const serializedAttachments = attachments.map(a => JSON.stringify(a));
 
@@ -219,7 +244,6 @@ export const NotesView: React.FC<NotesViewProps> = ({
           html,
           category: finalCategory,
           tags: tags.trim() || undefined,
-          points: points.trim() || undefined,
           color: colorTheme,
           pinned: isPinned,
           attachments: serializedAttachments.length > 0 ? serializedAttachments : undefined,
@@ -236,7 +260,6 @@ export const NotesView: React.FC<NotesViewProps> = ({
         html,
         category: finalCategory,
         tags: tags.trim() || undefined,
-        points: points.trim() || undefined,
         color: colorTheme,
         pinned: isPinned,
         attachments: serializedAttachments.length > 0 ? serializedAttachments : undefined,
@@ -265,7 +288,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
     const finalCategory = modalCustomCat.trim() || modalCategory || 'General';
     const now = Date.now();
     const body = modalContent;
-    const html = modalContent.replace(/\n/g, '<br/>');
+    const html = modalHtml || (modalContent ? modalContent.replace(/\n/g, '<br/>') : '');
     const serializedModalAttachments = modalAttachments.map(a => JSON.stringify(a));
 
     const updated: Note = {
@@ -275,7 +298,6 @@ export const NotesView: React.FC<NotesViewProps> = ({
       html,
       category: finalCategory,
       tags: modalTags.trim() || undefined,
-      points: modalPoints.trim() || undefined,
       color: modalColor,
       pinned: modalPinned,
       attachments: serializedModalAttachments.length > 0 ? serializedModalAttachments : undefined,
@@ -302,7 +324,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
 
   const handleCopyNote = async (note: Note, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const fullText = `${note.title}\n\n${note.body || ''}${note.points ? `\n\nPoints:\n${note.points}` : ''}`;
+    const fullText = `${note.title}\n\n${note.body || ''}`;
     try {
       await navigator.clipboard.writeText(fullText);
       setCopiedId(note.id);
@@ -315,7 +337,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
 
   const handleExportNote = (note: Note, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const fullText = `# ${note.title}\nDate: ${note.date} | Notebook: ${note.category}\nTags: ${note.tags || 'none'}\n\n${note.body || ''}\n\n${note.points ? `### Action Points:\n${note.points}` : ''}`;
+    const fullText = `# ${note.title}\nDate: ${note.date} | Notebook: ${note.category}\nTags: ${note.tags || 'none'}\n\n${note.body || ''}`;
     const blob = new Blob([fullText], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -358,9 +380,9 @@ export const NotesView: React.FC<NotesViewProps> = ({
     setTitle('');
     setTags('');
     setColorTheme('slate');
-    setPoints('');
     setIsPinned(false);
     setEditorText('');
+    setEditorHtml('');
     setCustomCategoryInput('');
     setAttachments([]);
   };
@@ -370,7 +392,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
     if (colorFilter !== 'all' && n.color !== colorFilter) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      const hay = `${n.title} ${n.body} ${n.points || ''} ${n.tags || ''} ${n.category}`.toLowerCase();
+      const hay = `${n.title} ${n.body} ${n.tags || ''} ${n.category}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -389,7 +411,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
             <span>Notes & Notebooks</span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Organized knowledge vaults, structured pointwise takeaways, color palettes, and markdown export.
+            Organized knowledge vaults, rich text formatting, color palettes, attachments, and markdown export.
           </p>
         </div>
 
@@ -564,36 +586,26 @@ export const NotesView: React.FC<NotesViewProps> = ({
               </div>
             </div>
 
-            {/* Note Content Editor */}
-            <div>
+            {/* Note Content Writing Canvas */}
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  Note Content & Body
-                </label>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  {editorText.length} chars
-                </span>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span>Notebook Canvas & Rich Formatting</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                  <span>Tables · Custom Bullets · 24+ Colors</span>
+                </div>
               </div>
-              <textarea
-                rows={6}
-                value={editorText}
-                onChange={e => setEditorText(e.target.value)}
-                placeholder="Write your note, thoughts, code, or markdown here..."
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white leading-relaxed"
-              />
-            </div>
-
-            {/* Pointwise structured note section */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                Pointwise Structured Takeaways (1 line = 1 point)
-              </label>
-              <textarea
-                rows={2}
-                value={points}
-                onChange={e => setPoints(e.target.value)}
-                placeholder="• Core decision 1&#10;• Immediate next step&#10;• Strategic insight"
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-mono text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              <NoteRichEditor
+                initialHtml={editorHtml}
+                onChange={(html, text) => {
+                  setEditorHtml(html);
+                  setEditorText(text);
+                }}
+                placeholder="Start typing your note... Use custom bullets (🎯, ⚡), tables, 24+ colors, and paragraph justify (Ctrl+J)."
+                minHeight="min-h-[220px]"
+                maxHeight="max-h-[460px]"
               />
             </div>
 
@@ -727,6 +739,21 @@ export const NotesView: React.FC<NotesViewProps> = ({
                             <Download className="h-3.5 w-3.5" />
                           </button>
                           
+                          {/* READ ALOUD (LISTEN) BUTTON */}
+                          <button
+                            type="button"
+                            onClick={(e) => toggleSpeakNoteCard(n, e)}
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                              speakingNoteCardId === n.id
+                                ? 'bg-indigo-600 text-white animate-pulse shadow-xs'
+                                : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-400'
+                            }`}
+                            title={speakingNoteCardId === n.id ? "Stop reading" : "Read note aloud (Hindi & English)"}
+                            aria-label="Read note aloud"
+                          >
+                            <Volume2 className={`h-3.5 w-3.5 ${speakingNoteCardId === n.id ? 'animate-bounce' : ''}`} />
+                          </button>
+
                           {/* EDIT BUTTON: Opens dedicated modal */}
                           <button
                             type="button"
@@ -755,16 +782,10 @@ export const NotesView: React.FC<NotesViewProps> = ({
                       </div>
 
                       {/* Content Preview */}
-                      <div className="mt-2.5 text-xs text-slate-700 dark:text-slate-300 max-h-32 overflow-hidden line-clamp-4 leading-relaxed whitespace-pre-line">
-                        {n.body || n.html?.replace(/<br\s*[\/]?>/gi, '\n').replace(/<[^>]*>/g, '')}
-                      </div>
-
-                      {/* Pointwise structured list */}
-                      {n.points && (
-                        <div className="mt-2.5 rounded-xl bg-slate-900/5 dark:bg-white/5 p-2 font-mono text-[10px] text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed">
-                          {n.points}
-                        </div>
-                      )}
+                      <div 
+                        className="mt-2.5 text-xs text-slate-700 dark:text-slate-300 max-h-36 overflow-hidden line-clamp-4 leading-relaxed [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_blockquote]:italic [&_blockquote]:pl-2 [&_blockquote]:border-l-2 [&_blockquote]:border-indigo-400 [&_table]:w-full [&_table]:border-collapse [&_table]:text-[10px] [&_th]:border [&_th]:border-slate-300 dark:[&_th]:border-slate-700 [&_th]:p-1 [&_td]:border [&_td]:border-slate-300 dark:[&_td]:border-slate-700 [&_td]:p-1"
+                        dangerouslySetInnerHTML={{ __html: n.html || (n.body ? n.body.replace(/\n/g, '<br/>') : '') }}
+                      />
 
                       {/* Attached Files indicator / chips */}
                       {n.attachments && n.attachments.length > 0 && (
@@ -921,36 +942,26 @@ export const NotesView: React.FC<NotesViewProps> = ({
                 </label>
               </div>
 
-              {/* Note Content Editor */}
-              <div>
+              {/* Note Content Writing Canvas */}
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                    Note Content
-                  </label>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {modalContent.length} chars
-                  </span>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                    <Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <span>Note Body & Formatting Studio</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                    <span>Full Table & Custom Bullets Active</span>
+                  </div>
                 </div>
-                <textarea
-                  rows={8}
-                  value={modalContent}
-                  onChange={e => setModalContent(e.target.value)}
-                  placeholder="Note body content..."
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white leading-relaxed"
-                />
-              </div>
-
-              {/* Pointwise structured takeaways */}
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  Pointwise Takeaways (1 line = 1 point)
-                </label>
-                <textarea
-                  rows={2}
-                  value={modalPoints}
-                  onChange={e => setModalPoints(e.target.value)}
-                  placeholder="• Key takeaway point"
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-mono text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                <NoteRichEditor
+                  initialHtml={modalHtml}
+                  onChange={(html, text) => {
+                    setModalHtml(html);
+                    setModalContent(text);
+                  }}
+                  placeholder="Edit your note with rich styles, custom bullets, 24+ colors, tables, and paragraph justify..."
+                  minHeight="min-h-[260px]"
+                  maxHeight="max-h-[480px]"
                 />
               </div>
 
@@ -1048,7 +1059,36 @@ export const NotesView: React.FC<NotesViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setViewingNote(null)}
+                  onClick={() => {
+                    const text = viewingNote.body || viewingNote.html?.replace(/<[^>]+>/g, ' ') || '';
+                    if (isSpeakingNote) {
+                      globalTextReader.stop();
+                      setIsSpeakingNote(false);
+                    } else {
+                      globalTextReader.speak(text, {
+                        onStateChange: (st) => setIsSpeakingNote(st.isSpeaking)
+                      });
+                      setIsSpeakingNote(true);
+                    }
+                  }}
+                  className={`rounded-xl p-1.5 transition-colors cursor-pointer ${
+                    isSpeakingNote
+                      ? 'bg-indigo-600 text-white animate-pulse'
+                      : 'text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 dark:text-slate-400 dark:hover:bg-slate-800'
+                  }`}
+                  title={isSpeakingNote ? 'Stop Reading' : 'Read Note Aloud (Hindi & English)'}
+                >
+                  <Volume2 className={`h-4 w-4 ${isSpeakingNote ? 'animate-bounce' : ''}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isSpeakingNote) {
+                      globalTextReader.stop();
+                      setIsSpeakingNote(false);
+                    }
+                    setViewingNote(null);
+                  }}
                   className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
                 >
                   <X className="h-4 w-4" />
@@ -1058,19 +1098,10 @@ export const NotesView: React.FC<NotesViewProps> = ({
 
             <div className="mt-4 space-y-4">
               {/* Content */}
-              <div className="text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-line">
-                {viewingNote.body || viewingNote.html?.replace(/<br\s*[\/]?>/gi, '\n').replace(/<[^>]*>/g, '')}
-              </div>
-
-              {/* Points */}
-              {viewingNote.points && (
-                <div className="rounded-2xl bg-slate-100/70 dark:bg-slate-800/60 p-3.5 font-mono text-xs text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed border border-slate-200/50 dark:border-slate-700/50">
-                  <div className="font-sans font-bold text-[11px] text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                    Action Takeaways
-                  </div>
-                  {viewingNote.points}
-                </div>
-              )}
+              <div 
+                className="text-xs sm:text-sm leading-relaxed text-slate-800 dark:text-slate-200 prose dark:prose-invert max-w-none [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_li]:my-0.5 [&_h1]:text-xl [&_h1]:font-bold [&_h1]:my-2.5 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:my-1.5 [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-400 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-slate-600 dark:[&_blockquote]:text-slate-300 [&_pre]:bg-slate-100 dark:[&_pre]:bg-slate-800 [&_pre]:p-2.5 [&_pre]:rounded-xl [&_pre]:font-mono [&_pre]:text-xs [&_table]:w-full [&_table]:border-collapse [&_table]:my-3 [&_table]:border [&_table]:border-slate-300 dark:[&_table]:border-slate-700 [&_table]:rounded-xl [&_table]:overflow-hidden [&_th]:border [&_th]:border-slate-300 dark:[&_th]:border-slate-700 [&_th]:bg-slate-100 dark:[&_th]:bg-slate-800 [&_th]:p-2.5 [&_th]:font-bold [&_th]:text-left [&_th]:text-xs [&_td]:border [&_td]:border-slate-300 dark:[&_td]:border-slate-700 [&_td]:p-2.5 [&_td]:text-xs [&_tr:nth-child(even)]:bg-slate-50/70 dark:[&_tr:nth-child(even)]:bg-slate-800/40"
+                dangerouslySetInnerHTML={{ __html: viewingNote.html || (viewingNote.body ? viewingNote.body.replace(/\n/g, '<br/>') : '') }}
+              />
 
               {/* Tags */}
               {viewingNote.tags && (

@@ -1,12 +1,16 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Calendar, Trash2, Edit3, Bold, Italic, Underline,
-  List, Copy, Check, Search
+  List, Copy, Check, Search, Mic, Volume2
 } from 'lucide-react';
 import { JournalEntry } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AttachmentUploader, AttachmentViewer, StoredAttachmentMeta } from '../components/AttachmentUploader';
+import {
+  VoiceDictationController, TextReaderController, VoiceLanguage,
+  isSpeechRecognitionSupported, isSpeechSynthesisSupported, globalTextReader
+} from '../lib/voiceService';
 
 interface JournalViewProps {
   journal: JournalEntry[];
@@ -33,6 +37,104 @@ export const JournalView: React.FC<JournalViewProps> = ({
   const editorRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Journal Voice Typing & Text Reading State
+  const [isListening, setIsListening] = useState(false);
+  const [dictationLang, setDictationLang] = useState<VoiceLanguage>('hi-IN');
+  const [interimText, setInterimText] = useState('');
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [speakingEntryId, setSpeakingEntryId] = useState<string | null>(null);
+  const dictationRef = useRef<VoiceDictationController | null>(null);
+  const readerRef = useRef<TextReaderController | null>(null);
+
+  // Toggle read reflection aloud for individual entry card
+  const toggleSpeakEntry = (j: JournalEntry) => {
+    if (speakingEntryId === j.id) {
+      globalTextReader.stop();
+      setSpeakingEntryId(null);
+    } else {
+      globalTextReader.stop();
+      const textToRead = (j.title ? j.title + '. ' : '') + (j.text || j.html?.replace(/<[^>]+>/g, ' ') || '');
+      if (!textToRead.trim()) return;
+      setSpeakingEntryId(j.id);
+      globalTextReader.speak(textToRead, {
+        onStateChange: (st) => {
+          if (!st.isSpeaking) {
+            setSpeakingEntryId(null);
+          }
+        }
+      });
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      dictationRef.current?.stop();
+      readerRef.current?.stop();
+    };
+  }, []);
+
+  const toggleJournalDictation = () => {
+    if (!isSpeechRecognitionSupported()) {
+      onSuccess('Voice typing is not supported on this browser. Please use Chrome, Safari or Edge.');
+      return;
+    }
+
+    if (!isListening) {
+      if (!dictationRef.current) {
+        dictationRef.current = new VoiceDictationController();
+      }
+      dictationRef.current.setLanguage(dictationLang);
+      dictationRef.current.start({
+        onResult: (res) => {
+          if (res.isFinal) {
+            if (editorRef.current) {
+              editorRef.current.focus();
+              document.execCommand('insertText', false, res.transcript + ' ');
+            }
+            setInterimText('');
+          } else {
+            setInterimText(res.transcript);
+          }
+        },
+        onStatusChange: (listening) => setIsListening(listening)
+      });
+      setIsListening(true);
+    } else {
+      dictationRef.current?.stop();
+      setIsListening(false);
+      setInterimText('');
+    }
+  };
+
+  const toggleJournalReading = () => {
+    if (!isSpeechSynthesisSupported()) {
+      onSuccess('Text reading is not supported on this browser.');
+      return;
+    }
+
+    if (!isSpeaking) {
+      const text = editorRef.current?.innerText || '';
+      if (!text.trim()) {
+        onSuccess('Please write or select a reflection to read aloud.');
+        return;
+      }
+      if (!readerRef.current) readerRef.current = new TextReaderController();
+      readerRef.current.speak(text, {
+        lang: dictationLang,
+        onStateChange: (st) => {
+          setIsSpeaking(st.isSpeaking);
+          setIsPaused(st.isPaused);
+        }
+      });
+      setIsSpeaking(true);
+    } else {
+      readerRef.current?.stop();
+      setIsSpeaking(false);
+      setIsPaused(false);
+    }
+  };
 
   const moodOptions = [
     { label: 'Productive', icon: '⚡' },
@@ -318,16 +420,21 @@ export const JournalView: React.FC<JournalViewProps> = ({
               </div>
             </div>
 
-            {/* Rich Editor Toolbar */}
+            {/* Rich Editor Toolbar with Voice Typing & Read Aloud */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                Introspection & Thoughts
-              </label>
-              <div className="mt-1 flex flex-wrap gap-1 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 p-1.5 dark:border-slate-700 dark:bg-slate-800">
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Introspection & Thoughts
+                </label>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Voice to Text & Reading Active
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-1 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 p-1.5 dark:border-slate-700 dark:bg-slate-800">
                 <button
                   type="button"
                   onClick={() => handleExec('bold')}
-                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
                   title="Bold"
                 >
                   <Bold className="h-3.5 w-3.5" />
@@ -335,7 +442,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleExec('italic')}
-                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
                   title="Italic"
                 >
                   <Italic className="h-3.5 w-3.5" />
@@ -343,7 +450,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleExec('underline')}
-                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
                   title="Underline"
                 >
                   <Underline className="h-3.5 w-3.5" />
@@ -351,12 +458,92 @@ export const JournalView: React.FC<JournalViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleExec('insertUnorderedList')}
-                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
                   title="Bullet List"
                 >
                   <List className="h-3.5 w-3.5" />
                 </button>
+
+                <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
+
+                {/* Voice Typing Button */}
+                <button
+                  type="button"
+                  onClick={toggleJournalDictation}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                    isListening
+                      ? 'bg-rose-600 text-white animate-pulse'
+                      : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-rose-600 dark:text-rose-400'
+                  }`}
+                  title="Voice Type (Hindi / English)"
+                >
+                  <Mic className="h-3.5 w-3.5" />
+                  <span>{isListening ? 'Typing...' : 'Voice Type'}</span>
+                </button>
+
+                {/* Read Aloud Button */}
+                <button
+                  type="button"
+                  onClick={toggleJournalReading}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                    isSpeaking
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400'
+                  }`}
+                  title="Read Reflection Aloud"
+                >
+                  <Volume2 className={`h-3.5 w-3.5 ${isSpeaking ? 'animate-bounce' : ''}`} />
+                  <span>{isSpeaking ? 'Reading...' : 'Read Aloud'}</span>
+                </button>
               </div>
+
+              {/* Dictation Banner */}
+              {isListening && (
+                <div className="flex items-center justify-between px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 border-x border-b border-rose-200 dark:border-rose-900/60 text-xs font-semibold text-rose-800 dark:text-rose-200 select-none">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="flex h-2 w-2 rounded-full bg-rose-600 animate-ping shrink-0" />
+                    <span className="font-bold">Listening ({dictationLang === 'hi-IN' ? 'हिन्दी' : 'English'}):</span>
+                    <span className="font-normal italic truncate">{interimText || 'Speak now...'}</span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = dictationLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
+                        setDictationLang(next);
+                        dictationRef.current?.setLanguage(next);
+                      }}
+                      className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-rose-200 text-[10px] font-bold text-rose-700 dark:text-rose-300 cursor-pointer"
+                    >
+                      {dictationLang === 'hi-IN' ? 'EN' : 'हिन्दी'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleJournalDictation}
+                      className="px-2 py-0.5 rounded bg-rose-600 text-[10px] font-bold text-white hover:bg-rose-500 cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Text Reading Banner */}
+              {isSpeaking && (
+                <div className="flex items-center justify-between px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 border-x border-b border-indigo-200 dark:border-indigo-900/60 text-xs font-semibold text-indigo-800 dark:text-indigo-200 select-none">
+                  <div className="flex items-center gap-1.5">
+                    <Volume2 className="h-3.5 w-3.5 text-indigo-600 animate-bounce" />
+                    <span>Reading reflection aloud...</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleJournalReading}
+                    className="px-2 py-0.5 rounded bg-rose-600 text-[10px] font-bold text-white hover:bg-rose-500 cursor-pointer"
+                  >
+                    Stop
+                  </button>
+                </div>
+              )}
 
               <div
                 ref={editorRef}
@@ -474,6 +661,18 @@ export const JournalView: React.FC<JournalViewProps> = ({
                       </div>
 
                       <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleSpeakEntry(j)}
+                          className={`p-1 rounded-md transition-colors cursor-pointer ${
+                            speakingEntryId === j.id
+                              ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950 animate-pulse'
+                              : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                          title={speakingEntryId === j.id ? "Stop reading" : "Read reflection aloud (Hindi & English)"}
+                        >
+                          <Volume2 className={`h-3.5 w-3.5 ${speakingEntryId === j.id ? 'animate-bounce' : ''}`} />
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleCopy(j)}

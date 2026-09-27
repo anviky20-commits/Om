@@ -22,6 +22,7 @@ import { BsDateModal } from './components/BsDateModal';
 import { MultiUserModal } from './components/MultiUserModal';
 import { ComputerFolderBackupModal } from './components/ComputerFolderBackupModal';
 import { AlarmTriggerModal } from './components/AlarmTriggerModal';
+import { VoiceStudioWidget } from './components/VoiceStudioWidget';
 import { alarmService, TriggeredAlarmData } from './lib/alarmService';
 
 // Views
@@ -733,6 +734,14 @@ export default function App() {
           showToast(`⏰ Alarm snoozed for ${mins} minutes`);
           loadAllData();
         }}
+      />
+
+      {/* Global High-Accuracy Voice-to-Text & Text Reading Studio (Hindi & English) */}
+      <VoiceStudioWidget
+        onSuccess={showToast}
+        onRefreshNotes={loadAllData}
+        onRefreshJournal={loadAllData}
+        onRefreshTasks={loadAllData}
       />
 
       {/* Toast Notification */}

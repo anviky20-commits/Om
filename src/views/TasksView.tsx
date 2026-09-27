@@ -2,11 +2,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   CheckSquare, Trash2, Calendar, Target, CheckCircle2,
   Circle, Edit3, Search, Filter, Check,
-  Download, Save, History, Layers, ArrowRight
+  Download, Save, History, Layers, ArrowRight,
+  Mic, MicOff, Volume2
 } from 'lucide-react';
 import { Task, TaskDomain, TaskPriority, DailyPlanner, Goal } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { ConfirmModal } from '../components/ConfirmModal';
+import {
+  VoiceDictationController, VoiceLanguage, globalTextReader,
+  isSpeechRecognitionSupported, isSpeechSynthesisSupported
+} from '../lib/voiceService';
 
 interface TasksViewProps {
   tasks: Task[];
@@ -53,6 +58,64 @@ export const TasksView: React.FC<TasksViewProps> = ({
 
   const formRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Voice Typing & Audio Reading for Tasks
+  const [isListeningTask, setIsListeningTask] = useState(false);
+  const [taskVoiceLang, setTaskVoiceLang] = useState<VoiceLanguage>('hi-IN');
+  const [speakingTaskId, setSpeakingTaskId] = useState<string | null>(null);
+  const taskDictationRef = useRef<VoiceDictationController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      taskDictationRef.current?.stop();
+    };
+  }, []);
+
+  const toggleTaskVoiceTyping = () => {
+    if (!isSpeechRecognitionSupported()) {
+      onSuccess('Voice typing is not supported on this browser.');
+      return;
+    }
+
+    if (!isListeningTask) {
+      if (!taskDictationRef.current) {
+        taskDictationRef.current = new VoiceDictationController();
+      }
+      taskDictationRef.current.setLanguage(taskVoiceLang);
+      taskDictationRef.current.start({
+        onResult: (res) => {
+          if (res.isFinal) {
+            setTitle(prev => (prev ? prev + ' ' + res.transcript : res.transcript));
+          }
+        },
+        onStatusChange: (listening) => setIsListeningTask(listening)
+      });
+      setIsListeningTask(true);
+      onSuccess(`🎤 Voice typing started (${taskVoiceLang === 'hi-IN' ? 'हिन्दी' : 'English'})`);
+    } else {
+      taskDictationRef.current?.stop();
+      setIsListeningTask(false);
+    }
+  };
+
+  const toggleSpeakTask = (task: Task) => {
+    if (speakingTaskId === task.id) {
+      globalTextReader.stop();
+      setSpeakingTaskId(null);
+    } else {
+      globalTextReader.stop();
+      const textToRead = `${task.title}. ${task.description ? 'Description: ' + task.description : ''}`;
+      if (!textToRead.trim()) return;
+      setSpeakingTaskId(task.id);
+      globalTextReader.speak(textToRead, {
+        onStateChange: (st) => {
+          if (!st.isSpeaking) {
+            setSpeakingTaskId(null);
+          }
+        }
+      });
+    }
+  };
 
   // Daily Command Center state
   const [plannerTarget, setPlannerTarget] = useState(dailyPlanner?.target || '');
@@ -452,9 +515,40 @@ export const TasksView: React.FC<TasksViewProps> = ({
 
             <form onSubmit={handleCreateOrUpdateTask} className="mt-4 space-y-3.5">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  Task Title
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    Task Title
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = taskVoiceLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
+                        setTaskVoiceLang(next);
+                        if (isListeningTask) {
+                          taskDictationRef.current?.setLanguage(next);
+                        }
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 cursor-pointer font-semibold"
+                      title="Switch speaking language"
+                    >
+                      {taskVoiceLang === 'hi-IN' ? '🇮🇳 हिन्दी' : '🇮🇳 EN-IN'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleTaskVoiceTyping}
+                      className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg font-semibold transition-all cursor-pointer ${
+                        isListeningTask
+                          ? 'bg-rose-600 text-white animate-pulse shadow-xs'
+                          : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:text-indigo-400'
+                      }`}
+                      title={isListeningTask ? 'Stop listening' : 'Speak task title (Hindi/English)'}
+                    >
+                      {isListeningTask ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
+                      <span>{isListeningTask ? 'Listening...' : 'Voice Type'}</span>
+                    </button>
+                  </div>
+                </div>
                 <input
                   ref={titleInputRef}
                   type="text"
@@ -462,7 +556,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="What needs to be accomplished?"
-                  className="mt-1 h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
 
@@ -662,6 +756,18 @@ export const TasksView: React.FC<TasksViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleSpeakTask(task)}
+                        className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                          speakingTaskId === task.id
+                            ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950 animate-pulse'
+                            : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                        title={speakingTaskId === task.id ? "Stop reading" : "Read task aloud (Hindi & English)"}
+                      >
+                        <Volume2 className={`h-3.5 w-3.5 ${speakingTaskId === task.id ? 'animate-bounce' : ''}`} />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleEditClick(task)}
