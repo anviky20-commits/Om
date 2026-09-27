@@ -59,6 +59,11 @@ export default function App() {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('om_clear_transparent') === 'true';
   });
+  const [transparency, setTransparency] = useState<number>(() => {
+    if (typeof window === 'undefined') return 45;
+    const saved = Number(localStorage.getItem('om_transparency'));
+    return Number.isFinite(saved) ? Math.min(100, Math.max(0, saved)) : 45;
+  });
 
   // Entities state
   const [appSettings, setAppSettings] = useState<AppState | undefined>();
@@ -324,6 +329,25 @@ export default function App() {
       document.documentElement.removeAttribute('data-transparent');
     }
   }, [isTransparent]);
+
+  // Keep 45% as the current glass look, while allowing the same glass to become
+  // more solid toward 0% or more clear toward 100%. Text/icons are unaffected.
+  useEffect(() => {
+    const value = Math.min(100, Math.max(0, transparency));
+    const headerAlpha = value <= 45
+      ? 1 - (1 - 0.35) * (value / 45)
+      : 0.35 * (1 - (value - 45) / 55);
+    const cardAlpha = value <= 45
+      ? 1 - (1 - 0.30) * (value / 45)
+      : 0.30 * (1 - (value - 45) / 55);
+    document.documentElement.style.setProperty('--glass-header-alpha', headerAlpha.toFixed(3));
+    document.documentElement.style.setProperty('--glass-card-alpha', cardAlpha.toFixed(3));
+    localStorage.setItem('om_transparency', String(value));
+  }, [transparency]);
+
+  const updateTransparency = (value: number) => {
+    setTransparency(Math.min(100, Math.max(0, value)));
+  };
 
   const toggleTransparent = () => {
     setIsTransparent(prev => {
@@ -645,6 +669,8 @@ export default function App() {
                 onToggleTheme={toggleTheme}
                 isTransparent={isTransparent}
                 onToggleTransparent={toggleTransparent}
+                transparency={transparency}
+                onTransparencyChange={updateTransparency}
               />
             )}
           </div>

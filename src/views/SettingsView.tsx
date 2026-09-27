@@ -18,6 +18,8 @@ interface SettingsViewProps {
   onToggleTheme: () => void;
   isTransparent?: boolean;
   onToggleTransparent?: () => void;
+  transparency?: number;
+  onTransparencyChange?: (value: number) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -29,6 +31,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onToggleTheme,
   isTransparent,
   onToggleTransparent,
+  transparency = 45,
+  onTransparencyChange,
 }) => {
   const [activeTab, setActiveTab] = useState<'system' | 'workspaces' | 'exports'>('system');
   const [newProfileName, setNewProfileName] = useState('');
@@ -437,6 +441,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <Eye className="h-3.5 w-3.5" />
                     <span>Transparent</span>
                   </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Manual Transparency Control */}
+            <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">Transparency</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Adjusts the existing glass backdrop only. Text, icons, and layout stay unchanged.</div>
+                </div>
+                <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold tabular-nums text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  {transparency}%
+                </span>
+              </div>
+              <div className="mt-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={transparency}
+                  onChange={e => onTransparencyChange?.(Number(e.target.value))}
+                  disabled={!isTransparent}
+                  aria-label="Transparency"
+                  className="w-full accent-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <div className="mt-1 flex items-center justify-between text-[10px] font-semibold text-slate-400">
+                  <span>Solid</span>
+                  <span>Clear</span>
                 </div>
               </div>
             </div>

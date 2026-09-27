@@ -90,7 +90,14 @@ export const Header: React.FC<HeaderProps> = ({
   });
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 sm:h-16 w-full items-center justify-between border-b border-slate-200 bg-white/95 px-2 sm:px-4 lg:px-6 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95 transition-colors gap-1 sm:gap-2">
+    <header
+      onMouseDown={(event) => {
+        if (event.button !== 0) return;
+        const target = event.target as HTMLElement;
+        if (target.closest('button, input, select, textarea, a, [role="button"]')) return;
+        void getCurrentWindow().startDragging();
+      }}
+      className="sticky top-0 z-30 flex h-14 sm:h-16 w-full items-center justify-between border-b border-slate-200 bg-white/95 px-2 sm:px-4 lg:px-6 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95 transition-colors gap-1 sm:gap-2">
       {/* Zone 1: Left - Brand Identity & Nepali BS / Gregorian AD Date (Date is placed where search was) */}
       <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0 select-none">
         {/* Mobile Hamburger Drawer Trigger */}
@@ -351,6 +358,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Minus className="h-4 w-4" />
           </button>
           <button
+            id="om-maximize-button"
             type="button"
             onClick={() => void getCurrentWindow().toggleMaximize()}
             className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-slate-500 transition-colors hover:bg-slate-200/40 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/40 dark:hover:text-white cursor-pointer"

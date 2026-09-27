@@ -114,14 +114,14 @@ html[data-transparent="true"] .dark\:bg-slate-950 {
 /* Clear transparent headers and navigation */
 html[data-transparent="true"] header,
 html[data-transparent="true"] aside {
-  background-color: rgba(255, 255, 255, 0.35) !important;
+  background-color: rgb(255 255 255 / var(--glass-header-alpha, 0.35)) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   border-color: rgba(255, 255, 255, 0.25) !important;
 }
 html.dark[data-transparent="true"] header,
 html.dark[data-transparent="true"] aside {
-  background-color: rgba(15, 23, 42, 0.35) !important;
+  background-color: rgb(15 23 42 / var(--glass-header-alpha, 0.35)) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
@@ -131,7 +131,7 @@ html.dark[data-transparent="true"] aside {
 html[data-transparent="true"] .bg-white,
 html[data-transparent="true"] .dark\:bg-slate-900,
 html[data-transparent="true"] .dark\:bg-slate-800 {
-  background-color: rgba(255, 255, 255, 0.3) !important;
+  background-color: rgb(255 255 255 / var(--glass-card-alpha, 0.3)) !important;
   backdrop-filter: blur(14px) !important;
   -webkit-backdrop-filter: blur(14px) !important;
   border-color: rgba(0, 0, 0, 0.08) !important;
@@ -139,7 +139,7 @@ html[data-transparent="true"] .dark\:bg-slate-800 {
 html.dark[data-transparent="true"] .bg-white,
 html.dark[data-transparent="true"] .dark\:bg-slate-900,
 html.dark[data-transparent="true"] .dark\:bg-slate-800 {
-  background-color: rgba(15, 23, 42, 0.3) !important;
+  background-color: rgb(15 23 42 / var(--glass-card-alpha, 0.3)) !important;
   backdrop-filter: blur(14px) !important;
   -webkit-backdrop-filter: blur(14px) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
