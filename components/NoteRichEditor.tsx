@@ -5,12 +5,9 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Indent, Outdent, RemoveFormatting, Table as TableIcon,
   ChevronDown, Plus, Minus, Trash2, Sparkles,
-  Grid, Mic, Volume2, Radio
+  Grid, Volume2, Radio
 } from 'lucide-react';
-import {
-  VoiceDictationController, TextReaderController, VoiceLanguage,
-  isSpeechRecognitionSupported, isSpeechSynthesisSupported
-} from '../lib/voiceService';
+import { TextReaderController, VoiceLanguage, isSpeechSynthesisSupported } from '../lib/voiceService';
 
 interface NoteRichEditorProps {
   initialHtml?: string;
@@ -146,56 +143,18 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
 
-  // Direct Voice-to-Text & Text Reading State
-  const [isEditorListening, setIsEditorListening] = useState(false);
-  const [editorDictationLang, setEditorDictationLang] = useState<VoiceLanguage>('hi-IN');
-  const [editorInterim, setEditorInterim] = useState('');
+  // Text Reading State
   const [isEditorSpeaking, setIsEditorSpeaking] = useState(false);
   const [isEditorPaused, setIsEditorPaused] = useState(false);
-  const dictationRef = useRef<VoiceDictationController | null>(null);
+  const [editorReaderLang, setEditorReaderLang] = useState<VoiceLanguage>('hi-IN');
   const readerRef = useRef<TextReaderController | null>(null);
 
-  // Clean up voice controllers on unmount
+  // Clean up voice reader on unmount
   useEffect(() => {
     return () => {
-      dictationRef.current?.stop();
       readerRef.current?.stop();
     };
   }, []);
-
-  const toggleEditorDictation = () => {
-    if (!isSpeechRecognitionSupported()) {
-      console.warn('Voice typing is not supported on this browser.');
-      return;
-    }
-
-    if (!isEditorListening) {
-      if (!dictationRef.current) {
-        dictationRef.current = new VoiceDictationController();
-      }
-      dictationRef.current.setLanguage(editorDictationLang);
-      dictationRef.current.start({
-        onResult: (res) => {
-          if (res.isFinal) {
-            if (editorRef.current) {
-              editorRef.current.focus();
-              document.execCommand('insertText', false, res.transcript + ' ');
-              handleEditorInput();
-            }
-            setEditorInterim('');
-          } else {
-            setEditorInterim(res.transcript);
-          }
-        },
-        onStatusChange: (listening) => setIsEditorListening(listening)
-      });
-      setIsEditorListening(true);
-    } else {
-      dictationRef.current?.stop();
-      setIsEditorListening(false);
-      setEditorInterim('');
-    }
-  };
 
   const toggleEditorReading = () => {
     if (!isSpeechSynthesisSupported()) {
@@ -208,7 +167,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
       if (!text.trim()) return;
       if (!readerRef.current) readerRef.current = new TextReaderController();
       readerRef.current.speak(text, {
-        lang: editorDictationLang,
+        lang: editorReaderLang,
         onStateChange: (st) => {
           setIsEditorSpeaking(st.isSpeaking);
           setIsEditorPaused(st.isPaused);
@@ -1035,24 +994,6 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
           </button>
 
           <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
-
-          {/* Voice Typing Button (Hindi & English 100% Accurate) */}
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); toggleEditorDictation(); }}
-            className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold transition-all cursor-pointer shrink-0 ${
-              isEditorListening
-                ? 'bg-rose-600 text-white animate-pulse shadow-md ring-2 ring-rose-400'
-                : 'hover:bg-slate-200/70 dark:hover:bg-slate-700 text-rose-600 dark:text-rose-400'
-            }`}
-            title={isEditorListening ? 'Stop Voice Typing' : 'Start Voice Typing (Hindi & English)'}
-          >
-            <Mic className="h-4 w-4" />
-            <span className="hidden sm:inline font-bold">
-              {isEditorListening ? 'Typing...' : 'Voice Type'}
-            </span>
-          </button>
-
           {/* Text Reading Aloud Button */}
           <button
             type="button"
@@ -1071,45 +1012,6 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
           </button>
         </div>
       </div>
-
-      {/* ========================================================================= */}
-      {/* LIVE VOICE TYPING BANNER                                                  */}
-      {/* ========================================================================= */}
-      {isEditorListening && (
-        <div className="flex items-center justify-between px-3.5 py-2 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-200/80 dark:border-rose-900/60 text-xs font-semibold text-rose-800 dark:text-rose-200 animate-in fade-in select-none">
-          <div className="flex items-center gap-2 min-w-0 pr-2">
-            <span className="flex h-2.5 w-2.5 rounded-full bg-rose-600 animate-ping shrink-0" />
-            <span className="font-bold shrink-0">
-              Voice Typing ({editorDictationLang === 'hi-IN' ? '🇮🇳 हिन्दी' : '🇮🇳 English'}):
-            </span>
-            <span className="font-normal italic text-slate-700 dark:text-slate-300 truncate">
-              {editorInterim || 'Listening live... speak freely (non-native friendly)'}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                const next = editorDictationLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
-                setEditorDictationLang(next);
-                dictationRef.current?.setLanguage(next);
-              }}
-              className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-rose-200 text-[10px] font-bold text-rose-700 dark:text-rose-300 hover:bg-rose-100 cursor-pointer"
-            >
-              {editorDictationLang === 'hi-IN' ? 'Switch to English' : 'Switch to हिन्दी'}
-            </button>
-            <button
-              type="button"
-              onClick={toggleEditorDictation}
-              className="px-2.5 py-0.5 rounded-md bg-rose-600 text-[10px] font-bold text-white hover:bg-rose-500 cursor-pointer shadow-2xs"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ========================================================================= */}
       {/* LIVE TEXT READING BANNER                                                  */}
       {/* ========================================================================= */}
@@ -1117,7 +1019,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
         <div className="flex items-center justify-between px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950/40 border-b border-indigo-200/80 dark:border-indigo-900/60 text-xs font-semibold text-indigo-800 dark:text-indigo-200 animate-in fade-in select-none">
           <div className="flex items-center gap-2">
             <Volume2 className="h-4 w-4 text-indigo-600 animate-bounce" />
-            <span>Reading Note Aloud in {editorDictationLang === 'hi-IN' ? 'Hindi' : 'English'}...</span>
+            <span>Reading Note Aloud in {editorReaderLang === 'hi-IN' ? 'Hindi' : 'English'}...</span>
           </div>
           <div className="flex items-center gap-1.5">
             <button

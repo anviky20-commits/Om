@@ -1,20 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Mic, MicOff, Volume2, Play, Pause, Square,
-  Languages, Copy, Check, FileText, CheckSquare,
-  BookOpen, X, Sliders, Zap, RotateCcw, Headphones,
-  Waves, ArrowRight, Trash2, ClipboardPaste
+  Volume2, Play, Pause, Square,
+  Languages, Check, X, Sliders, Zap, RotateCcw, Headphones,
+  Waves, ArrowRight, ClipboardPaste
 } from 'lucide-react';
-import {
-  globalDictation, globalTextReader, VoiceLanguage,
-  isSpeechRecognitionSupported
-} from '../lib/voiceService';
+import { globalTextReader, VoiceLanguage } from '../lib/voiceService';
 import {
   VoicePersona, PERSONA_PRESETS, VOICE_MATCH_PRESETS,
   VoiceMatchPreset, estimatePitchFromAudioData, mapFrequencyToVoiceMatch
 } from '../lib/nativeVoiceEngine';
-import { storage, generateUUID } from '../lib/storage';
-import { Note, JournalEntry, Task } from '../types';
 
 interface VoiceStudioWidgetProps {
   onSuccess: (msg: string) => void;
@@ -30,22 +24,8 @@ export const VoiceStudioWidget: React.FC<VoiceStudioWidgetProps> = ({
   onRefreshTasks
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dictation' | 'reader' | 'matcher'>('dictation');
-  const [selectedLang, setSelectedLang] = useState<VoiceLanguage>('hi-IN');
+  const [activeTab, setActiveTab] = useState<'reader' | 'matcher'>('reader');
 
-  // =========================================================================
-  // DICTATION & MICROPHONE STATE
-  // =========================================================================
-  const [isListening, setIsListening] = useState(false);
-  const [liveTranscript, setLiveTranscript] = useState('');
-  const [interimText, setInterimText] = useState('');
-  const [hasCopied, setHasCopied] = useState(false);
-  const [micAudioLevel, setMicAudioLevel] = useState<number>(0);
-
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const micStreamRef = useRef<MediaStream | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
 
   // =========================================================================
   // TEXT READER & VOICE PERSONAS STATE
@@ -77,7 +57,6 @@ export const VoiceStudioWidget: React.FC<VoiceStudioWidgetProps> = ({
   const [currentVoiceLabel, setCurrentVoiceLabel] = useState<string | undefined>(undefined);
   const [readingProgress, setReadingProgress] = useState(0);
 
-  const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   // Load available system voices
   useEffect(() => {
@@ -113,133 +92,6 @@ export const VoiceStudioWidget: React.FC<VoiceStudioWidgetProps> = ({
     setMatchedRate(preset.rate);
     setMatchedPauseWeight(preset.pauseWeight);
     onSuccess(`✓ Voice matched: ${preset.name} (${preset.nameHi})`);
-  };
-
-  // Start / Stop Live Audio Level Monitor for visual VU meter
-  const startVolumeMonitor = async () => {
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) return;
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStreamRef.current = stream;
-
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      audioContextRef.current = ctx;
-
-      const source = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      analyserRef.current = analyser;
-      source.connect(analyser);
-
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      const updateLevel = () => {
-        if (!analyserRef.current) return;
-        analyserRef.current.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
-        }
-        const average = sum / bufferLength;
-        const normalized = Math.min(100, Math.round((average / 128) * 100));
-        setMicAudioLevel(normalized);
-        animationFrameRef.current = requestAnimationFrame(updateLevel);
-      };
-      updateLevel();
-    } catch {
-      // Ignored
-    }
-  };
-
-  const stopVolumeMonitor = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    if (analyserRef.current) {
-      analyserRef.current = null;
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
-    }
-    if (micStreamRef.current) {
-      micStreamRef.current.getTracks().forEach((t) => t.stop());
-      micStreamRef.current = null;
-    }
-    setMicAudioLevel(0);
-  };
-
-  // Synchronize dictation state
-  useEffect(() => {
-    const handleStatus = (listening: boolean) => {
-      setIsListening(listening);
-      if (listening) {
-        startVolumeMonitor();
-      } else {
-        stopVolumeMonitor();
-      }
-    };
-
-    if (isListening) {
-      globalDictation.start({
-        onResult: (res) => {
-          if (res.isFinal) {
-            setLiveTranscript((prev) => (prev ? prev + ' ' + res.transcript : res.transcript));
-            setInterimText('');
-          } else {
-            setInterimText(res.transcript);
-          }
-        },
-        onError: (err) => {
-          if (err === 'MIC_PERMISSION_DENIED') {
-            setIsListening(false);
-            onSuccess('Microphone permission required. Please allow access in your browser bar.');
-          } else if (err === 'MIC_AUDIO_CAPTURE_ERROR') {
-            setIsListening(false);
-            onSuccess('No audio signal detected from microphone.');
-          } else {
-            onSuccess(err);
-          }
-        },
-        onStatusChange: handleStatus
-      });
-    } else {
-      globalDictation.stop();
-      setInterimText('');
-      stopVolumeMonitor();
-    }
-
-    return () => {
-      globalDictation.stop();
-      stopVolumeMonitor();
-    };
-  }, [isListening]);
-
-  // Auto-scroll transcript canvas
-  useEffect(() => {
-    if (transcriptEndRef.current) {
-      transcriptEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [liveTranscript, interimText]);
-
-  // Language switch
-  const handleLanguageChange = (lang: VoiceLanguage) => {
-    setSelectedLang(lang);
-    globalDictation.setLanguage(lang);
-    onSuccess(`Language: ${lang === 'hi-IN' ? 'हिन्दी (Hindi)' : lang === 'en-IN' ? 'English (India)' : 'English (Global)'}`);
-  };
-
-  // Toggle listening
-  const toggleListening = () => {
-    if (!isSpeechRecognitionSupported()) {
-      onSuccess('Voice typing is not supported on this browser. Chrome or Edge recommended.');
-      return;
-    }
-    setIsListening((prev) => !prev);
   };
 
   // "अपनी आवाज़ से सुर मिलाएँ" (Mic Pitch Analyzer)
@@ -294,90 +146,6 @@ export const VoiceStudioWidget: React.FC<VoiceStudioWidgetProps> = ({
       setIsAnalyzingPitch(false);
       onSuccess('Microphone unavailable for pitch sampling. You can tune sliders directly.');
     }
-  };
-
-  // Copy transcript to clipboard
-  const handleCopyTranscript = async () => {
-    const fullText = (liveTranscript + (interimText ? ' ' + interimText : '')).trim();
-    if (!fullText) return;
-    try {
-      await navigator.clipboard.writeText(fullText);
-      setHasCopied(true);
-      setTimeout(() => setHasCopied(false), 2000);
-      onSuccess('✓ Text copied to clipboard');
-    } catch {
-      onSuccess('Failed to copy');
-    }
-  };
-
-  // Quick Action: Save as Note
-  const handleSaveAsNote = async () => {
-    const fullText = (liveTranscript + (interimText ? ' ' + interimText : '')).trim();
-    if (!fullText) return;
-
-    const now = Date.now();
-    const titleSnippet = fullText.slice(0, 32).split('\n')[0] || 'Voice Dictation Note';
-    const newNote: Note = {
-      id: generateUUID(),
-      title: titleSnippet,
-      body: fullText,
-      html: fullText.replace(/\n/g, '<br/>'),
-      category: 'Voice Notes',
-      date: new Date().toISOString().slice(0, 10),
-      color: 'sky',
-      createdAt: now,
-      updatedAt: now
-    };
-
-    await storage.put('notes', newNote);
-    onSuccess('✓ Voice note saved to notebook');
-    onRefreshNotes?.();
-  };
-
-  // Quick Action: Save to Daily Journal
-  const handleSaveToJournal = async () => {
-    const fullText = (liveTranscript + (interimText ? ' ' + interimText : '')).trim();
-    if (!fullText) return;
-
-    const now = Date.now();
-    const newEntry: JournalEntry = {
-      id: generateUUID(),
-      title: 'Voice Reflection',
-      text: fullText,
-      html: fullText.replace(/\n/g, '<br/>'),
-      date: new Date().toISOString().slice(0, 10),
-      color: 'violet',
-      mood: 'Focused',
-      createdAt: now,
-      updatedAt: now
-    };
-
-    await storage.put('journal', newEntry);
-    onSuccess('✓ Voice entry saved to Daily Journal');
-    onRefreshJournal?.();
-  };
-
-  // Quick Action: Save as Task
-  const handleSaveAsTask = async () => {
-    const fullText = (liveTranscript + (interimText ? ' ' + interimText : '')).trim();
-    if (!fullText) return;
-
-    const now = Date.now();
-    const newTask: Task = {
-      id: generateUUID(),
-      title: fullText.slice(0, 80),
-      description: fullText.length > 80 ? fullText : undefined,
-      domain: 'personal',
-      priority: 'Medium',
-      done: false,
-      status: 'open',
-      createdAt: now,
-      updatedAt: now
-    };
-
-    await storage.put('tasks', newTask);
-    onSuccess('✓ Voice task added to Tasks');
-    onRefreshTasks?.();
   };
 
   // Audio Reading Handlers
@@ -456,8 +224,6 @@ export const VoiceStudioWidget: React.FC<VoiceStudioWidgetProps> = ({
     return true;
   });
 
-  const wordCount = liveTranscript.trim() ? liveTranscript.trim().split(/\s+/).length : 0;
-
   const getPitchToneLabel = (p: number) => {
     if (p < 0.88) return 'Deep Baritone (भारी सुर)';
     if (p >= 0.88 && p <= 1.10) return 'Natural (स्वाभाविक सुर)';
@@ -470,37 +236,18 @@ export const VoiceStudioWidget: React.FC<VoiceStudioWidgetProps> = ({
       {/* FLOATING LAUNCHER PILL (CLEAN, MINIMALIST, HIGH-AESTHETIC)               */}
       {/* ========================================================================= */}
       <div className="fixed bottom-20 lg:bottom-6 right-4 sm:right-6 z-40 flex items-center gap-2 select-none">
-        {/* Dynamic status chip if listening or reading */}
-        {isListening && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-600 text-white shadow-lg text-xs font-semibold animate-pulse border border-rose-400/40">
-            <span className="h-2 w-2 rounded-full bg-white animate-ping" />
-            <span>Listening ({selectedLang === 'hi-IN' ? 'हिन्दी' : 'English'})</span>
-          </div>
-        )}
-
-        {isSpeaking && !isListening && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-600 text-white shadow-lg text-xs font-semibold border border-indigo-400/40">
-            <Volume2 className="h-3.5 w-3.5 animate-bounce" />
-            <span>Reading {readingProgress}%</span>
-          </div>
-        )}
-
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className={`flex items-center gap-2 px-3.5 py-2.5 rounded-full shadow-lg border transition-all cursor-pointer ${
-            isListening || isSpeaking
+            isSpeaking
               ? 'bg-slate-900 text-white border-indigo-500/40 ring-4 ring-indigo-500/10'
               : 'bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xl'
           }`}
           title="Open Voice & Audio Studio"
         >
           <div className="relative flex items-center justify-center">
-            {isSpeaking ? (
-              <Volume2 className="h-4.5 w-4.5 text-indigo-500" />
-            ) : (
-              <Mic className={`h-4.5 w-4.5 ${isListening ? 'text-rose-500 animate-pulse' : 'text-indigo-600 dark:text-indigo-400'}`} />
-            )}
+            <Volume2 className="h-4.5 w-4.5 text-indigo-500" />
           </div>
           <span className="text-xs font-semibold hidden sm:inline">Voice Studio</span>
         </button>
@@ -524,8 +271,6 @@ export const VoiceStudioWidget: React.FC<VoiceStudioWidgetProps> = ({
                     Voice & Audio Studio
                   </h3>
                   <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    <span>Voice Typing</span>
-                    <span aria-hidden="true">·</span>
                     <span>Text to Speech</span>
                     <span aria-hidden="true">·</span>
                     <span>Tuning (सुर मिलाना)</span>
@@ -545,20 +290,7 @@ export const VoiceStudioWidget: React.FC<VoiceStudioWidgetProps> = ({
 
             {/* Segmented Tab Switcher */}
             <div className="p-3 sm:px-6 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
-              <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('dictation')}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-medium transition-all cursor-pointer truncate ${
-                    activeTab === 'dictation'
-                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-semibold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  <Mic className="h-3.5 w-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
-                  <span className="truncate">Voice Typing</span>
-                </button>
-
+              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80">
                 <button
                   type="button"
                   onClick={() => setActiveTab('reader')}
@@ -589,181 +321,6 @@ export const VoiceStudioWidget: React.FC<VoiceStudioWidgetProps> = ({
 
             {/* ========================================================================= */}
             {/* TAB 1: VOICE TO TEXT (CLEAN, SPACIOUS, MODERN CANVAS)                     */}
-            {/* ========================================================================= */}
-            {activeTab === 'dictation' && (
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-                
-                {/* Language Bar & Word Stats */}
-                <div className="flex flex-wrap items-center justify-between gap-2.5">
-                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => handleLanguageChange('hi-IN')}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                        selectedLang === 'hi-IN'
-                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-semibold'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                      }`}
-                    >
-                      हिन्दी
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleLanguageChange('en-IN')}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                        selectedLang === 'en-IN'
-                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-semibold'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                      }`}
-                    >
-                      English (India)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleLanguageChange('en-US')}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                        selectedLang === 'en-US'
-                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-semibold'
-                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                      }`}
-                    >
-                      Global EN
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                    <span>{wordCount} words</span>
-                    {liveTranscript && (
-                      <>
-                        <span aria-hidden="true">·</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLiveTranscript('');
-                            setInterimText('');
-                          }}
-                          className="text-slate-500 hover:text-rose-500 transition-colors cursor-pointer flex items-center gap-1"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          <span>Clear</span>
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Live Transcript Canvas */}
-                <div className="relative min-h-[160px] sm:min-h-[220px] max-h-[340px] rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 p-4 sm:p-5 overflow-y-auto leading-relaxed text-slate-900 dark:text-slate-100 text-sm sm:text-base transition-all">
-                  {liveTranscript ? (
-                    <span className="whitespace-pre-wrap">{liveTranscript}</span>
-                  ) : (
-                    !interimText && (
-                      <span className="text-slate-400 dark:text-slate-500 italic select-none text-xs sm:text-sm">
-                        Tap the microphone below and speak naturally. Hindi, Hinglish, and English with conversational pauses and punctuation commands ("पूर्ण विराम", "comma", "new line") are formatted automatically...
-                      </span>
-                    )
-                  )}
-
-                  {interimText && (
-                    <span className="text-indigo-600 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded font-medium animate-pulse ml-1 inline-block">
-                      {interimText}
-                    </span>
-                  )}
-
-                  <div ref={transcriptEndRef} />
-                </div>
-
-                {/* Center Audio Control & Visual Soundbars */}
-                <div className="flex flex-col items-center justify-center gap-2 py-2">
-                  {/* Clean Visual Waveform */}
-                  {isListening && (
-                    <div className="flex items-center gap-1 h-6">
-                      {[0.3, 0.6, 1.0, 0.7, 0.4, 0.9, 0.5, 0.8, 0.3].map((multiplier, idx) => {
-                        const heightPx = Math.max(4, Math.round((micAudioLevel || 24) * multiplier * 0.24));
-                        return (
-                          <span
-                            key={idx}
-                            style={{ height: `${heightPx}px` }}
-                            className="w-1 bg-indigo-600 dark:bg-indigo-400 rounded-full transition-all duration-75"
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={toggleListening}
-                    className={`flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full shadow-lg transition-all duration-200 cursor-pointer ${
-                      isListening
-                        ? 'bg-rose-600 text-white ring-8 ring-rose-500/20 scale-105 animate-pulse'
-                        : 'bg-indigo-600 text-white hover:bg-indigo-500 hover:scale-105 active:scale-95'
-                    }`}
-                    title={isListening ? 'Stop Listening' : 'Start Voice Typing'}
-                  >
-                    {isListening ? (
-                      <MicOff className="h-6 w-6 sm:h-7 sm:w-7" />
-                    ) : (
-                      <Mic className="h-6 w-6 sm:h-7 sm:w-7" />
-                    )}
-                  </button>
-
-                  <div className="text-center">
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 block">
-                      {isListening ? 'Listening... Tap to Pause' : 'Tap to Start Voice Typing'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Export & Save Toolbar */}
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <button
-                      type="button"
-                      disabled={!liveTranscript.trim()}
-                      onClick={handleCopyTranscript}
-                      className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 disabled:opacity-40 cursor-pointer shadow-2xs transition-colors"
-                    >
-                      {hasCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4 text-slate-500" />}
-                      <span>{hasCopied ? 'Copied' : 'Copy'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={!liveTranscript.trim()}
-                      onClick={handleSaveAsNote}
-                      className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 disabled:opacity-40 cursor-pointer shadow-2xs transition-colors"
-                    >
-                      <FileText className="h-4 w-4 text-slate-500" />
-                      <span>Save Note</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={!liveTranscript.trim()}
-                      onClick={handleSaveToJournal}
-                      className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 disabled:opacity-40 cursor-pointer shadow-2xs transition-colors"
-                    >
-                      <BookOpen className="h-4 w-4 text-slate-500" />
-                      <span>To Journal</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={!liveTranscript.trim()}
-                      onClick={handleSaveAsTask}
-                      className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80 disabled:opacity-40 cursor-pointer shadow-2xs transition-colors"
-                    >
-                      <CheckSquare className="h-4 w-4 text-slate-500" />
-                      <span>To Task</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ========================================================================= */}
-            {/* TAB 2: TEXT READING & VOICE PERSONAS (CLEAN 2-COLUMN ON TABLET/DESKTOP)   */}
             {/* ========================================================================= */}
             {activeTab === 'reader' && (
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">

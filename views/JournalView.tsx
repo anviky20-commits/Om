@@ -1,16 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Calendar, Trash2, Edit3, Bold, Italic, Underline,
-  List, Copy, Check, Search, Mic, Volume2
+  List, Copy, Check, Search, Volume2
 } from 'lucide-react';
 import { JournalEntry } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AttachmentUploader, AttachmentViewer, StoredAttachmentMeta } from '../components/AttachmentUploader';
-import {
-  VoiceDictationController, TextReaderController, VoiceLanguage,
-  isSpeechRecognitionSupported, isSpeechSynthesisSupported, globalTextReader
-} from '../lib/voiceService';
+import { TextReaderController, VoiceLanguage, isSpeechSynthesisSupported, globalTextReader } from '../lib/voiceService';
 
 interface JournalViewProps {
   journal: JournalEntry[];
@@ -38,14 +35,11 @@ export const JournalView: React.FC<JournalViewProps> = ({
   const formRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  // Journal Voice Typing & Text Reading State
-  const [isListening, setIsListening] = useState(false);
-  const [dictationLang, setDictationLang] = useState<VoiceLanguage>('hi-IN');
-  const [interimText, setInterimText] = useState('');
+  // Journal Text Reading State
+  const [readerLang, setReaderLang] = useState<VoiceLanguage>('hi-IN');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [speakingEntryId, setSpeakingEntryId] = useState<string | null>(null);
-  const dictationRef = useRef<VoiceDictationController | null>(null);
   const readerRef = useRef<TextReaderController | null>(null);
 
   // Toggle read reflection aloud for individual entry card
@@ -70,43 +64,9 @@ export const JournalView: React.FC<JournalViewProps> = ({
 
   useEffect(() => {
     return () => {
-      dictationRef.current?.stop();
       readerRef.current?.stop();
     };
   }, []);
-
-  const toggleJournalDictation = () => {
-    if (!isSpeechRecognitionSupported()) {
-      onSuccess('Voice typing is not supported on this browser. Please use Chrome, Safari or Edge.');
-      return;
-    }
-
-    if (!isListening) {
-      if (!dictationRef.current) {
-        dictationRef.current = new VoiceDictationController();
-      }
-      dictationRef.current.setLanguage(dictationLang);
-      dictationRef.current.start({
-        onResult: (res) => {
-          if (res.isFinal) {
-            if (editorRef.current) {
-              editorRef.current.focus();
-              document.execCommand('insertText', false, res.transcript + ' ');
-            }
-            setInterimText('');
-          } else {
-            setInterimText(res.transcript);
-          }
-        },
-        onStatusChange: (listening) => setIsListening(listening)
-      });
-      setIsListening(true);
-    } else {
-      dictationRef.current?.stop();
-      setIsListening(false);
-      setInterimText('');
-    }
-  };
 
   const toggleJournalReading = () => {
     if (!isSpeechSynthesisSupported()) {
@@ -122,7 +82,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
       }
       if (!readerRef.current) readerRef.current = new TextReaderController();
       readerRef.current.speak(text, {
-        lang: dictationLang,
+        lang: readerLang,
         onStateChange: (st) => {
           setIsSpeaking(st.isSpeaking);
           setIsPaused(st.isPaused);
@@ -420,7 +380,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
               </div>
             </div>
 
-            {/* Rich Editor Toolbar with Voice Typing & Read Aloud */}
+            {/* Rich Editor Toolbar with Read Aloud */}
             <div>
               <div className="flex items-center justify-between">
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
@@ -466,21 +426,6 @@ export const JournalView: React.FC<JournalViewProps> = ({
 
                 <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
 
-                {/* Voice Typing Button */}
-                <button
-                  type="button"
-                  onClick={toggleJournalDictation}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
-                    isListening
-                      ? 'bg-rose-600 text-white animate-pulse'
-                      : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-rose-600 dark:text-rose-400'
-                  }`}
-                  title="Voice Type (Hindi / English)"
-                >
-                  <Mic className="h-3.5 w-3.5" />
-                  <span>{isListening ? 'Typing...' : 'Voice Type'}</span>
-                </button>
-
                 {/* Read Aloud Button */}
                 <button
                   type="button"
@@ -496,38 +441,6 @@ export const JournalView: React.FC<JournalViewProps> = ({
                   <span>{isSpeaking ? 'Reading...' : 'Read Aloud'}</span>
                 </button>
               </div>
-
-              {/* Dictation Banner */}
-              {isListening && (
-                <div className="flex items-center justify-between px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 border-x border-b border-rose-200 dark:border-rose-900/60 text-xs font-semibold text-rose-800 dark:text-rose-200 select-none">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className="flex h-2 w-2 rounded-full bg-rose-600 animate-ping shrink-0" />
-                    <span className="font-bold">Listening ({dictationLang === 'hi-IN' ? 'हिन्दी' : 'English'}):</span>
-                    <span className="font-normal italic truncate">{interimText || 'Speak now...'}</span>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = dictationLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
-                        setDictationLang(next);
-                        dictationRef.current?.setLanguage(next);
-                      }}
-                      className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-rose-200 text-[10px] font-bold text-rose-700 dark:text-rose-300 cursor-pointer"
-                    >
-                      {dictationLang === 'hi-IN' ? 'EN' : 'हिन्दी'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={toggleJournalDictation}
-                      className="px-2 py-0.5 rounded bg-rose-600 text-[10px] font-bold text-white hover:bg-rose-500 cursor-pointer"
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Text Reading Banner */}
               {isSpeaking && (
                 <div className="flex items-center justify-between px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 border-x border-b border-indigo-200 dark:border-indigo-900/60 text-xs font-semibold text-indigo-800 dark:text-indigo-200 select-none">
