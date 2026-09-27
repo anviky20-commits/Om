@@ -1,0 +1,739 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Calendar, Trash2, Edit3, Bold, Italic, Underline,
+  List, Copy, Check, Search, Mic, Volume2
+} from 'lucide-react';
+import { JournalEntry } from '../types';
+import { storage, generateUUID } from '../lib/storage';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { AttachmentUploader, AttachmentViewer, StoredAttachmentMeta } from '../components/AttachmentUploader';
+import {
+  VoiceDictationController, TextReaderController, VoiceLanguage,
+  isSpeechRecognitionSupported, isSpeechSynthesisSupported, globalTextReader
+} from '../lib/voiceService';
+
+interface JournalViewProps {
+  journal: JournalEntry[];
+  onRefresh: () => void;
+  onSuccess: (msg: string) => void;
+}
+
+export const JournalView: React.FC<JournalViewProps> = ({
+  journal,
+  onRefresh,
+  onSuccess
+}) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const [title, setTitle] = useState('');
+  const [date, setDate] = useState(today);
+  const [colorTheme, setColorTheme] = useState('sky');
+  const [mood, setMood] = useState('Productive');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedMoodFilter, setSelectedMoodFilter] = useState<string>('all');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [entryToDelete, setEntryToDelete] = useState<JournalEntry | null>(null);
+  const [attachments, setAttachments] = useState<StoredAttachmentMeta[]>([]);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Journal Voice Typing & Text Reading State
+  const [isListening, setIsListening] = useState(false);
+  const [dictationLang, setDictationLang] = useState<VoiceLanguage>('hi-IN');
+  const [interimText, setInterimText] = useState('');
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [speakingEntryId, setSpeakingEntryId] = useState<string | null>(null);
+  const dictationRef = useRef<VoiceDictationController | null>(null);
+  const readerRef = useRef<TextReaderController | null>(null);
+
+  // Toggle read reflection aloud for individual entry card
+  const toggleSpeakEntry = (j: JournalEntry) => {
+    if (speakingEntryId === j.id) {
+      globalTextReader.stop();
+      setSpeakingEntryId(null);
+    } else {
+      globalTextReader.stop();
+      const textToRead = (j.title ? j.title + '. ' : '') + (j.text || j.html?.replace(/<[^>]+>/g, ' ') || '');
+      if (!textToRead.trim()) return;
+      setSpeakingEntryId(j.id);
+      globalTextReader.speak(textToRead, {
+        onStateChange: (st) => {
+          if (!st.isSpeaking) {
+            setSpeakingEntryId(null);
+          }
+        }
+      });
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      dictationRef.current?.stop();
+      readerRef.current?.stop();
+    };
+  }, []);
+
+  const toggleJournalDictation = () => {
+    if (!isSpeechRecognitionSupported()) {
+      onSuccess('Voice typing is not supported on this browser. Please use Chrome, Safari or Edge.');
+      return;
+    }
+
+    if (!isListening) {
+      if (!dictationRef.current) {
+        dictationRef.current = new VoiceDictationController();
+      }
+      dictationRef.current.setLanguage(dictationLang);
+      dictationRef.current.start({
+        onResult: (res) => {
+          if (res.isFinal) {
+            if (editorRef.current) {
+              editorRef.current.focus();
+              document.execCommand('insertText', false, res.transcript + ' ');
+            }
+            setInterimText('');
+          } else {
+            setInterimText(res.transcript);
+          }
+        },
+        onStatusChange: (listening) => setIsListening(listening)
+      });
+      setIsListening(true);
+    } else {
+      dictationRef.current?.stop();
+      setIsListening(false);
+      setInterimText('');
+    }
+  };
+
+  const toggleJournalReading = () => {
+    if (!isSpeechSynthesisSupported()) {
+      onSuccess('Text reading is not supported on this browser.');
+      return;
+    }
+
+    if (!isSpeaking) {
+      const text = editorRef.current?.innerText || '';
+      if (!text.trim()) {
+        onSuccess('Please write or select a reflection to read aloud.');
+        return;
+      }
+      if (!readerRef.current) readerRef.current = new TextReaderController();
+      readerRef.current.speak(text, {
+        lang: dictationLang,
+        onStateChange: (st) => {
+          setIsSpeaking(st.isSpeaking);
+          setIsPaused(st.isPaused);
+        }
+      });
+      setIsSpeaking(true);
+    } else {
+      readerRef.current?.stop();
+      setIsSpeaking(false);
+      setIsPaused(false);
+    }
+  };
+
+  const moodOptions = [
+    { label: 'Productive', icon: '⚡' },
+    { label: 'Peaceful', icon: '😌' },
+    { label: 'Inspired', icon: '🌟' },
+    { label: 'Deep Focus', icon: '🧘' },
+    { label: 'Challenged', icon: '🌧' }
+  ];
+
+  const themePalettes: Record<string, { label: string; swatch: string; cardClass: string }> = {
+    sky: {
+      label: 'Calm Sky',
+      swatch: '#38bdf8',
+      cardClass: 'bg-sky-50/70 border-sky-200/80 dark:bg-sky-950/20 dark:border-sky-800/40 hover:border-sky-300 dark:hover:border-sky-700/60'
+    },
+    amber: {
+      label: 'Warm Sunrise',
+      swatch: '#fbbf24',
+      cardClass: 'bg-amber-50/70 border-amber-200/80 dark:bg-amber-950/20 dark:border-amber-800/40 hover:border-amber-300 dark:hover:border-amber-700/60'
+    },
+    emerald: {
+      label: 'Verdant Forest',
+      swatch: '#34d399',
+      cardClass: 'bg-emerald-50/70 border-emerald-200/80 dark:bg-emerald-950/20 dark:border-emerald-800/40 hover:border-emerald-300 dark:hover:border-emerald-700/60'
+    },
+    violet: {
+      label: 'Twilight Violet',
+      swatch: '#a78bfa',
+      cardClass: 'bg-purple-50/70 border-purple-200/80 dark:bg-purple-950/20 dark:border-purple-800/40 hover:border-purple-300 dark:hover:border-purple-700/60'
+    },
+    slate: {
+      label: 'Clean Slate',
+      swatch: '#94a3b8',
+      cardClass: 'bg-white border-slate-200/90 dark:bg-slate-900/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+    }
+  };
+
+  const getTheme = (colorVal?: string) => {
+    if (!colorVal) return themePalettes.sky;
+    if (themePalettes[colorVal]) return themePalettes[colorVal];
+    if (colorVal.includes('amber') || colorVal.includes('fef9c3')) return themePalettes.amber;
+    if (colorVal.includes('green') || colorVal.includes('f0fdf4')) return themePalettes.emerald;
+    if (colorVal.includes('purple') || colorVal.includes('f5f3ff')) return themePalettes.violet;
+    return themePalettes.sky;
+  };
+
+  const handleExec = (cmd: string, val: string | null = null) => {
+    document.execCommand(cmd, false, val || undefined);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const html = editorRef.current?.innerHTML || '';
+    const text = editorRef.current?.innerText || '';
+    if (!text.trim() && !title.trim()) return;
+
+    const now = Date.now();
+    const serializedAttachments = attachments.map(a => JSON.stringify(a));
+
+    if (editingId) {
+      const existing = journal.find(j => j.id === editingId);
+      if (existing) {
+        const updated: JournalEntry = {
+          ...existing,
+          title: title.trim() || 'Daily Reflection',
+          text,
+          html,
+          date,
+          color: colorTheme,
+          mood,
+          attachments: serializedAttachments.length > 0 ? serializedAttachments : undefined,
+          updatedAt: now
+        };
+        await storage.put('journal', updated);
+        onSuccess('✓ Journal reflection updated');
+      }
+    } else {
+      const newEntry: JournalEntry = {
+        id: generateUUID(),
+        title: title.trim() || 'Daily Reflection',
+        text,
+        html,
+        date,
+        color: colorTheme,
+        mood,
+        attachments: serializedAttachments.length > 0 ? serializedAttachments : undefined,
+        createdAt: now,
+        updatedAt: now
+      };
+      await storage.put('journal', newEntry);
+      onSuccess('✓ Journal reflection recorded');
+    }
+
+    resetForm();
+    onRefresh();
+  };
+
+  const handleEdit = (entry: JournalEntry) => {
+    setEditingId(entry.id);
+    setTitle(entry.title);
+    setDate(entry.date);
+    setColorTheme(entry.color && themePalettes[entry.color] ? entry.color : 'sky');
+    setMood(entry.mood || 'Productive');
+    const parsedAtts: StoredAttachmentMeta[] = (entry.attachments || []).map(a => {
+      try {
+        return typeof a === 'string' ? JSON.parse(a) : a;
+      } catch {
+        return { id: a, name: a, type: 'file', size: 0 };
+      }
+    });
+    setAttachments(parsedAtts);
+    if (editorRef.current) {
+      editorRef.current.innerHTML = entry.html || entry.text;
+    }
+
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => {
+      titleInputRef.current?.focus();
+    }, 150);
+  };
+
+  const handleCopy = async (entry: JournalEntry) => {
+    const fullText = `${entry.title} (${entry.date})\nMood: ${entry.mood || 'Reflective'}\n\n${entry.text || ''}`;
+    try {
+      await navigator.clipboard.writeText(fullText);
+      setCopiedId(entry.id);
+      setTimeout(() => setCopiedId(null), 2000);
+      onSuccess('Copied to clipboard');
+    } catch {
+      onSuccess('Copy unavailable');
+    }
+  };
+
+  const handleDelete = (entry: JournalEntry) => {
+    setEntryToDelete(entry);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!entryToDelete) return;
+    try {
+      await storage.delete('journal', entryToDelete.id);
+      onSuccess('✓ Journal entry deleted');
+      setEntryToDelete(null);
+      if (editingId === entryToDelete.id) {
+        resetForm();
+      }
+      onRefresh();
+    } catch (err) {
+      console.error('Failed to delete journal entry', err);
+    }
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setTitle('');
+    setDate(today);
+    setColorTheme('sky');
+    setMood('Productive');
+    setAttachments([]);
+    if (editorRef.current) {
+      editorRef.current.innerHTML = '';
+    }
+  };
+
+  const filteredEntries = journal.filter(j => {
+    if (selectedMoodFilter !== 'all' && j.mood !== selectedMoodFilter) return false;
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return `${j.title} ${j.text} ${j.mood || ''} ${j.date}`.toLowerCase().includes(q);
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
+            Daily Journal & Philosophical Reflections
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Introspection, emotional intelligence, moral inventory, and daily insights.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Journal Editor (5 cols) */}
+        <div
+          ref={formRef}
+          className={`lg:col-span-5 rounded-2xl border transition-all ${
+            editingId
+              ? 'border-indigo-400 bg-indigo-50/20 dark:border-indigo-500/50 dark:bg-indigo-950/20 ring-2 ring-indigo-500/20'
+              : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
+          } p-5 sm:p-6 shadow-xs`}
+        >
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 text-xs">
+                📖
+              </span>
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                {editingId ? 'Edit Entry' : 'Record Reflection'}
+              </h2>
+            </div>
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetForm}
+                className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
+
+          <form onSubmit={handleSave} className="mt-4 space-y-3.5">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                Reflection Title / Headline
+              </label>
+              <input
+                ref={titleInputRef}
+                type="text"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="e.g. Navigating strategic ambiguity"
+                className="mt-1 h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  className="mt-1 h-9 w-full rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Dominant State / Mood
+                </label>
+                <select
+                  value={mood}
+                  onChange={e => setMood(e.target.value)}
+                  className="mt-1 h-9 w-full rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                >
+                  {moodOptions.map(m => (
+                    <option key={m.label} value={m.label}>{m.icon} {m.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Theme Swatches */}
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                Entry Color Theme
+              </label>
+              <div className="mt-1.5 flex gap-2">
+                {Object.entries(themePalettes).map(([k, t]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setColorTheme(k)}
+                    className={`h-7 w-7 rounded-xl border flex items-center justify-center transition-all ${
+                      colorTheme === k
+                        ? 'border-indigo-600 ring-2 ring-indigo-500/30 scale-105'
+                        : 'border-slate-200 dark:border-slate-700'
+                    }`}
+                    title={t.label}
+                  >
+                    <span
+                      className="h-4 w-4 rounded-lg shadow-xs"
+                      style={{ backgroundColor: t.swatch }}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Rich Editor Toolbar with Voice Typing & Read Aloud */}
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Introspection & Thoughts
+                </label>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Voice to Text & Reading Active
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-1 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 p-1.5 dark:border-slate-700 dark:bg-slate-800">
+                <button
+                  type="button"
+                  onClick={() => handleExec('bold')}
+                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
+                  title="Bold"
+                >
+                  <Bold className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExec('italic')}
+                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
+                  title="Italic"
+                >
+                  <Italic className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExec('underline')}
+                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
+                  title="Underline"
+                >
+                  <Underline className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExec('insertUnorderedList')}
+                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
+                  title="Bullet List"
+                >
+                  <List className="h-3.5 w-3.5" />
+                </button>
+
+                <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
+
+                {/* Voice Typing Button */}
+                <button
+                  type="button"
+                  onClick={toggleJournalDictation}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                    isListening
+                      ? 'bg-rose-600 text-white animate-pulse'
+                      : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-rose-600 dark:text-rose-400'
+                  }`}
+                  title="Voice Type (Hindi / English)"
+                >
+                  <Mic className="h-3.5 w-3.5" />
+                  <span>{isListening ? 'Typing...' : 'Voice Type'}</span>
+                </button>
+
+                {/* Read Aloud Button */}
+                <button
+                  type="button"
+                  onClick={toggleJournalReading}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                    isSpeaking
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400'
+                  }`}
+                  title="Read Reflection Aloud"
+                >
+                  <Volume2 className={`h-3.5 w-3.5 ${isSpeaking ? 'animate-bounce' : ''}`} />
+                  <span>{isSpeaking ? 'Reading...' : 'Read Aloud'}</span>
+                </button>
+              </div>
+
+              {/* Dictation Banner */}
+              {isListening && (
+                <div className="flex items-center justify-between px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 border-x border-b border-rose-200 dark:border-rose-900/60 text-xs font-semibold text-rose-800 dark:text-rose-200 select-none">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="flex h-2 w-2 rounded-full bg-rose-600 animate-ping shrink-0" />
+                    <span className="font-bold">Listening ({dictationLang === 'hi-IN' ? 'हिन्दी' : 'English'}):</span>
+                    <span className="font-normal italic truncate">{interimText || 'Speak now...'}</span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = dictationLang === 'hi-IN' ? 'en-IN' : 'hi-IN';
+                        setDictationLang(next);
+                        dictationRef.current?.setLanguage(next);
+                      }}
+                      className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 border border-rose-200 text-[10px] font-bold text-rose-700 dark:text-rose-300 cursor-pointer"
+                    >
+                      {dictationLang === 'hi-IN' ? 'EN' : 'हिन्दी'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleJournalDictation}
+                      className="px-2 py-0.5 rounded bg-rose-600 text-[10px] font-bold text-white hover:bg-rose-500 cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Text Reading Banner */}
+              {isSpeaking && (
+                <div className="flex items-center justify-between px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 border-x border-b border-indigo-200 dark:border-indigo-900/60 text-xs font-semibold text-indigo-800 dark:text-indigo-200 select-none">
+                  <div className="flex items-center gap-1.5">
+                    <Volume2 className="h-3.5 w-3.5 text-indigo-600 animate-bounce" />
+                    <span>Reading reflection aloud...</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleJournalReading}
+                    className="px-2 py-0.5 rounded bg-rose-600 text-[10px] font-bold text-white hover:bg-rose-500 cursor-pointer"
+                  >
+                    Stop
+                  </button>
+                </div>
+              )}
+
+              <div
+                ref={editorRef}
+                contentEditable
+                className="min-h-[140px] max-h-64 overflow-y-auto rounded-b-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white leading-relaxed"
+              />
+            </div>
+
+            {/* Attached Files Section */}
+            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+              <AttachmentUploader
+                attachments={attachments}
+                onChange={setAttachments}
+                label="Attach Files & Media"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 active:scale-98 transition-transform cursor-pointer"
+            >
+              {editingId ? 'Update Reflection' : '＋ Save Reflection'}
+            </button>
+          </form>
+        </div>
+
+        {/* Journal Timeline Archive (7 cols) */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800/80 dark:bg-slate-900 space-y-3.5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                Journal Timeline ({filteredEntries.length})
+              </h2>
+              <span className="text-[11px] text-slate-400">Chronological Archive</span>
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search reflections by word, mood, or date..."
+                className="h-9 w-full rounded-xl border border-slate-200 pl-9 pr-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              />
+            </div>
+
+            {/* Mood / Category Filter Tabs */}
+            <div className="flex overflow-x-auto pb-1 gap-2 no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setSelectedMoodFilter('all')}
+                className={`rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer ${
+                  selectedMoodFilter === 'all'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
+                }`}
+              >
+                All Entries ({journal.length})
+              </button>
+              {moodOptions.map(m => {
+                const count = journal.filter(j => j.mood === m.label).length;
+                return (
+                  <button
+                    key={m.label}
+                    type="button"
+                    onClick={() => setSelectedMoodFilter(m.label)}
+                    className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer ${
+                      selectedMoodFilter === m.label
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
+                    }`}
+                  >
+                    <span>{m.icon}</span>
+                    <span>{m.label}</span>
+                    <span>({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-3.5">
+            {filteredEntries.length === 0 ? (
+              <div className="py-16 text-center text-xs text-slate-400 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                No journal reflections found. Record today's entry on the left.
+              </div>
+            ) : (
+              filteredEntries.slice().reverse().map(j => {
+                const theme = getTheme(j.color);
+                const moodObj = moodOptions.find(m => m.label === j.mood);
+                return (
+                  <div
+                    key={j.id}
+                    className={`relative rounded-2xl border p-4 sm:p-5 shadow-xs transition-all card-hover ${theme.cardClass}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                            {j.title}
+                          </h3>
+                          {j.mood && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-white/70 dark:bg-slate-800/70 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                              <span>{moodObj?.icon || '•'}</span>
+                              <span>{j.mood}</span>
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                          <Calendar className="h-3 w-3" />
+                          <span className="font-mono">{j.date}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleSpeakEntry(j)}
+                          className={`p-1 rounded-md transition-colors cursor-pointer ${
+                            speakingEntryId === j.id
+                              ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950 animate-pulse'
+                              : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                          title={speakingEntryId === j.id ? "Stop reading" : "Read reflection aloud (Hindi & English)"}
+                        >
+                          <Volume2 className={`h-3.5 w-3.5 ${speakingEntryId === j.id ? 'animate-bounce' : ''}`} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(j)}
+                          className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                          title="Copy text"
+                        >
+                          {copiedId === j.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(j)}
+                          className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                          title="Edit reflection"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(j)}
+                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                          title="Delete reflection"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div
+                      className="prose prose-xs mt-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: j.html || j.text }}
+                    />
+
+                    {/* Attached files indicator / download list */}
+                    {j.attachments && j.attachments.length > 0 && (
+                      <div className="mt-3 pt-2 border-t border-black/5 dark:border-white/5">
+                        <AttachmentViewer attachments={j.attachments} compact={true} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* CONFIRM DELETE JOURNAL MODAL */}
+      <ConfirmModal
+        isOpen={Boolean(entryToDelete)}
+        title="Delete Reflection?"
+        message={
+          entryToDelete
+            ? `Are you sure you want to delete "${entryToDelete.title}"? This reflection will be permanently removed.`
+            : ''
+        }
+        confirmText="Delete Reflection"
+        cancelText="Cancel"
+        isDanger={true}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setEntryToDelete(null)}
+      />
+    </div>
+  );
+};
