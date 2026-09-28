@@ -7,7 +7,7 @@ import { generateCompleteStandaloneHtml } from './exportHtml';
 export { generateCompleteStandaloneHtml };
 
 export const DB_NAME = 'om-lifeos-canonical-v4';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export const ENTITY_STORES = [
   'tasks', 'routines', 'habits', 'habitLogs', 'goals', 'milestones', 'strategies',
@@ -24,7 +24,7 @@ export const ENTITY_STORES = [
   'achievements', 'calcHistory', 'attachments'
 ];
 
-export const SINGLETON_STORES = ['appSettings', 'healthProfile'];
+export const SINGLETON_STORES = ['appSettings', 'healthProfile', 'profileSecurity'];
 
 export function generateUUID(): string {
   try {
@@ -76,6 +76,68 @@ function createSalt(): Uint8Array {
   return salt;
 }
 
+interface ProfileSecurityRecord {
+  id: 'root';
+  profiles: Record<string, {
+    passwordHash: string;
+    passwordSalt: string;
+    passwordHint: string;
+    recoveryQuestion: string;
+    recoveryAnswerHash: string;
+    recoveryAnswerSalt: string;
+  }>;
+}
+
+type ProfileCredentialRecord = ProfileSecurityRecord['profiles'][string];
+
+async function getProfileSecurityRecord(): Promise<ProfileSecurityRecord> {
+  const stored = await storage.getSingleton<ProfileSecurityRecord>('profileSecurity');
+  if (!stored || typeof stored !== 'object' || !stored.profiles || typeof stored.profiles !== 'object') {
+    return { id: 'root', profiles: {} };
+  }
+  return { id: 'root', profiles: stored.profiles };
+}
+
+function getCompleteProfileCredentials(profile?: UserProfile | null): ProfileCredentialRecord | null {
+  if (!profile?.passwordHash || !profile.passwordSalt || !profile.recoveryAnswerHash || !profile.recoveryAnswerSalt) return null;
+  return {
+    passwordHash: profile.passwordHash,
+    passwordSalt: profile.passwordSalt,
+    passwordHint: profile.passwordHint || '',
+    recoveryQuestion: profile.recoveryQuestion || '',
+    recoveryAnswerHash: profile.recoveryAnswerHash,
+    recoveryAnswerSalt: profile.recoveryAnswerSalt
+  };
+}
+
+function isCompleteCredentialRecord(record?: Partial<ProfileCredentialRecord> | null): record is ProfileCredentialRecord {
+  return Boolean(
+    record?.passwordHash && record.passwordSalt &&
+    record.recoveryAnswerHash && record.recoveryAnswerSalt
+  );
+}
+
+async function resolveProfileCredentials(profileId: string): Promise<ProfileCredentialRecord | null> {
+  const settings = await storage.getSingleton<AppState>('appSettings');
+  const profile = settings?.profiles?.find(p => p.id === profileId);
+  if (!profile) return null;
+
+  const security = await getProfileSecurityRecord();
+  const stored = security.profiles[profileId];
+  const fromProfile = getCompleteProfileCredentials(profile);
+
+  // A complete profile credential set is a valid legacy source. If the dedicated
+  // security record is missing or malformed, repair it instead of repeatedly
+  // sending the user back to first-time setup.
+  if (fromProfile && !isCompleteCredentialRecord(stored)) {
+    security.profiles[profileId] = fromProfile;
+    await storage.setSingleton('profileSecurity', security);
+    return fromProfile;
+  }
+
+  return isCompleteCredentialRecord(stored) ? stored : null;
+}
+
 export async function setProfileCredentials(
   profileId: string,
   password: string,
@@ -93,13 +155,37 @@ export async function setProfileCredentials(
 
   const passwordSalt = createSalt();
   const recoverySalt = createSalt();
-  profile.passwordSalt = bytesToBase64(passwordSalt);
-  profile.passwordHash = await deriveCredentialHash(password, passwordSalt);
-  profile.passwordHint = passwordHint.trim();
-  profile.recoveryQuestion = recoveryQuestion.trim();
-  profile.recoveryAnswerSalt = bytesToBase64(recoverySalt);
-  profile.recoveryAnswerHash = await deriveCredentialHash(recoveryAnswer.trim().toLowerCase(), recoverySalt);
-  await storage.setSingleton('appSettings', settings);
+  const credentialRecord: ProfileCredentialRecord = {
+    passwordHash: await deriveCredentialHash(password, passwordSalt),
+    passwordSalt: bytesToBase64(passwordSalt),
+    passwordHint: passwordHint.trim(),
+    recoveryQuestion: recoveryQuestion.trim(),
+    recoveryAnswerHash: await deriveCredentialHash(recoveryAnswer.trim().toLowerCase(), recoverySalt),
+    recoveryAnswerSalt: bytesToBase64(recoverySalt)
+  };
+
+  const updatedProfile: UserProfile = {
+    ...profile,
+    passwordHash: credentialRecord.passwordHash,
+    passwordSalt: credentialRecord.passwordSalt,
+    passwordHint: credentialRecord.passwordHint,
+    recoveryQuestion: credentialRecord.recoveryQuestion,
+    recoveryAnswerHash: credentialRecord.recoveryAnswerHash,
+    recoveryAnswerSalt: credentialRecord.recoveryAnswerSalt
+  };
+  const nextSettings: AppState = {
+    ...settings,
+    profiles: settings.profiles.map(p => p.id === profileId ? updatedProfile : p)
+  };
+
+  // Persist the profile and its dedicated credential record in one IndexedDB
+  // transaction so a successful password setup cannot leave a half-written state.
+  const security = await getProfileSecurityRecord();
+  security.profiles[profileId] = credentialRecord;
+  await storage.atomicPutMany([
+    { storeName: 'appSettings', item: { id: 'root', value: nextSettings } },
+    { storeName: 'profileSecurity', item: { id: 'root', value: security } }
+  ]);
 }
 
 export async function createLocalProfile(
@@ -116,21 +202,34 @@ export async function createLocalProfile(
 
   const passwordSalt = createSalt();
   const recoverySalt = createSalt();
+  const credentialRecord: ProfileCredentialRecord = {
+    passwordHash: await deriveCredentialHash(password, passwordSalt),
+    passwordSalt: bytesToBase64(passwordSalt),
+    passwordHint: passwordHint.trim(),
+    recoveryQuestion: recoveryQuestion.trim(),
+    recoveryAnswerHash: await deriveCredentialHash(recoveryAnswer.trim().toLowerCase(), recoverySalt),
+    recoveryAnswerSalt: bytesToBase64(recoverySalt)
+  };
   const credentialedProfile: UserProfile = {
     ...profile,
     authType: 'local',
-    passwordSalt: bytesToBase64(passwordSalt),
-    passwordHash: await deriveCredentialHash(password, passwordSalt),
-    passwordHint: passwordHint.trim(),
-    recoveryQuestion: recoveryQuestion.trim(),
-    recoveryAnswerSalt: bytesToBase64(recoverySalt),
-    recoveryAnswerHash: await deriveCredentialHash(recoveryAnswer.trim().toLowerCase(), recoverySalt)
+    passwordHash: credentialRecord.passwordHash,
+    passwordSalt: credentialRecord.passwordSalt,
+    passwordHint: credentialRecord.passwordHint,
+    recoveryQuestion: credentialRecord.recoveryQuestion,
+    recoveryAnswerHash: credentialRecord.recoveryAnswerHash,
+    recoveryAnswerSalt: credentialRecord.recoveryAnswerSalt
   };
   const nextSettings: AppState = {
     ...settings,
     profiles: [...(settings.profiles || []), credentialedProfile]
   };
-  await storage.setSingleton('appSettings', nextSettings);
+  const security = await getProfileSecurityRecord();
+  security.profiles[profile.id] = credentialRecord;
+  await storage.atomicPutMany([
+    { storeName: 'appSettings', item: { id: 'root', value: nextSettings } },
+    { storeName: 'profileSecurity', item: { id: 'root', value: security } }
+  ]);
 }
 
 export async function resetProfilePassword(profileId: string, password: string, passwordHint: string): Promise<void> {
@@ -138,35 +237,59 @@ export async function resetProfilePassword(profileId: string, password: string, 
   if (!passwordHint.trim()) throw new Error('Password hint is required.');
   const settings = await storage.getSingleton<AppState>('appSettings');
   const profile = settings?.profiles?.find(p => p.id === profileId);
-  if (!settings || !profile || !profile.recoveryAnswerHash || !profile.recoveryAnswerSalt) throw new Error('Profile recovery data is unavailable.');
+  if (!settings || !profile) throw new Error('Profile not found.');
+  const existing = await resolveProfileCredentials(profileId);
+  if (!existing) throw new Error('Profile recovery data is unavailable.');
+
   const passwordSalt = createSalt();
-  profile.passwordSalt = bytesToBase64(passwordSalt);
-  profile.passwordHash = await deriveCredentialHash(password, passwordSalt);
-  profile.passwordHint = passwordHint.trim();
-  await storage.setSingleton('appSettings', settings);
+  const passwordHash = await deriveCredentialHash(password, passwordSalt);
+  const updatedProfile: UserProfile = {
+    ...profile,
+    passwordSalt: bytesToBase64(passwordSalt),
+    passwordHash,
+    passwordHint: passwordHint.trim()
+  };
+  const nextSettings: AppState = {
+    ...settings,
+    profiles: settings.profiles.map(p => p.id === profileId ? updatedProfile : p)
+  };
+  const security = await getProfileSecurityRecord();
+  security.profiles[profileId] = {
+    ...existing,
+    passwordHash,
+    passwordSalt: updatedProfile.passwordSalt!,
+    passwordHint: updatedProfile.passwordHint || ''
+  };
+  await storage.atomicPutMany([
+    { storeName: 'appSettings', item: { id: 'root', value: nextSettings } },
+    { storeName: 'profileSecurity', item: { id: 'root', value: security } }
+  ]);
 }
 
 export async function verifyProfilePassword(profileId: string, password: string): Promise<boolean> {
-  const settings = await storage.getSingleton<AppState>('appSettings');
-  const profile = settings?.profiles?.find(p => p.id === profileId);
-  if (!profile?.passwordHash || !profile.passwordSalt) return false;
-  const candidate = await deriveCredentialHash(password, base64ToBytes(profile.passwordSalt));
-  return candidate === profile.passwordHash;
+  const record = await resolveProfileCredentials(profileId);
+  if (!record?.passwordHash || !record.passwordSalt) return false;
+  const candidate = await deriveCredentialHash(password, base64ToBytes(record.passwordSalt));
+  return candidate === record.passwordHash;
 }
 
 export async function verifyProfileRecoveryAnswer(profileId: string, answer: string): Promise<boolean> {
-  const settings = await storage.getSingleton<AppState>('appSettings');
-  const profile = settings?.profiles?.find(p => p.id === profileId);
-  if (!profile?.recoveryAnswerHash || !profile.recoveryAnswerSalt) return false;
-  const candidate = await deriveCredentialHash(answer.trim().toLowerCase(), base64ToBytes(profile.recoveryAnswerSalt));
-  return candidate === profile.recoveryAnswerHash;
+  const record = await resolveProfileCredentials(profileId);
+  if (!record?.recoveryAnswerHash || !record.recoveryAnswerSalt) return false;
+  const candidate = await deriveCredentialHash(answer.trim().toLowerCase(), base64ToBytes(record.recoveryAnswerSalt));
+  return candidate === record.recoveryAnswerHash;
 }
 
-export async function getProfileSecurityInfo(profileId: string): Promise<Pick<UserProfile, 'passwordHint' | 'recoveryQuestion'> | null> {
+export async function getProfileSecurityInfo(profileId: string): Promise<(Pick<UserProfile, 'passwordHint' | 'recoveryQuestion'> & { credentialsReady: boolean }) | null> {
   const settings = await storage.getSingleton<AppState>('appSettings');
   const profile = settings?.profiles?.find(p => p.id === profileId);
   if (!profile) return null;
-  return { passwordHint: profile.passwordHint, recoveryQuestion: profile.recoveryQuestion };
+  const record = await resolveProfileCredentials(profileId);
+  return {
+    passwordHint: record?.passwordHint || profile.passwordHint || '',
+    recoveryQuestion: record?.recoveryQuestion || profile.recoveryQuestion || '',
+    credentialsReady: Boolean(record)
+  };
 }
 
 export async function deleteLocalProfile(profileId: string): Promise<AppState> {
@@ -440,13 +563,18 @@ class StorageEngine {
       const rows = await this.getAllRaw<any>(storeName);
       rowsByStore[storeName] = rows.filter(row => row.profileId === profileId);
     }
+    const security = await this.getSingleton<any>('profileSecurity');
+    if (security?.profiles?.[profileId]) {
+      delete security.profiles[profileId];
+    }
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction([...ENTITY_STORES, 'appSettings'], 'readwrite');
+      const tx = db.transaction([...ENTITY_STORES, 'appSettings', 'profileSecurity'], 'readwrite');
       try {
         for (const storeName of ENTITY_STORES) {
           for (const row of rowsByStore[storeName]) tx.objectStore(storeName).delete(row.id);
         }
-        tx.objectStore('appSettings').put(settings);
+        tx.objectStore('appSettings').put({ id: 'root', value: settings });
+        tx.objectStore('profileSecurity').put({ id: 'root', value: security || { id: 'root', profiles: {} } });
       } catch (error) {
         try { tx.abort(); } catch {}
         reject(error);

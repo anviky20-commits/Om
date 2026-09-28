@@ -10,7 +10,7 @@ import {
   ImportantRecordItem, ReminderItem, NotificationItem, AchievementItem,
   CalcHistoryItem, Skill, Course, WorkResponsibility
 } from './types';
-import { storage, seedInitialDataIfEmpty, verifyProfilePassword, verifyProfileRecoveryAnswer, getProfileSecurityInfo, setProfileCredentials, resetProfilePassword } from './lib/storage';
+import { storage, seedInitialDataIfEmpty, verifyProfilePassword, verifyProfileRecoveryAnswer, getProfileSecurityInfo, setProfileCredentials, resetProfilePassword, createLocalProfile, generateUUID } from './lib/storage';
 
 // Components
 import { Header } from './components/Header';
@@ -51,64 +51,112 @@ function AppLockScreen({
   onUnlocked: (profileId: string) => void;
 }) {
   const profiles = settings.profiles || [];
-  const [profileId, setProfileId] = useState(settings.profileId || profiles[0]?.id || '');
-  const profile = profiles.find(p => p.id === profileId) || profiles[0];
+  const initialProfile = profiles.find(p => p.id === settings.profileId) || profiles[0];
+  const [profileId, setProfileId] = useState(initialProfile?.id || '');
+  const [identity, setIdentity] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'login' | 'setup' | 'recovery' | 'reset'>('login');
-  const [hint, setHint] = useState<string>('');
-  const [showHint, setShowHint] = useState(false);
-  const [question, setQuestion] = useState<string>('');
+  const [hint, setHint] = useState('');
+  const [question, setQuestion] = useState('');
   const [recoveryAnswer, setRecoveryAnswer] = useState('');
+  const [recoveryIdentity, setRecoveryIdentity] = useState('');
+  const [recoveryProfileId, setRecoveryProfileId] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const [newHint, setNewHint] = useState('');
+  const [newQuestion, setNewQuestion] = useState('');
+  const [newRecoveryAnswer, setNewRecoveryAnswer] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
+  const [helpMode, setHelpMode] = useState<'choose' | 'username' | 'password'>('choose');
+  const [showCreate, setShowCreate] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [createPasswordConfirm, setCreatePasswordConfirm] = useState('');
+  const [createHint, setCreateHint] = useState('');
+  const [createQuestion, setCreateQuestion] = useState('');
+  const [createRecoveryAnswer, setCreateRecoveryAnswer] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  React.useEffect(() => {
+  const resolveProfile = (value: string) => {
+    const needle = value.trim().toLowerCase();
+    return profiles.find(p => p.name.trim().toLowerCase() === needle || (p.email || '').trim().toLowerCase() === needle);
+  };
+
+  const loadProfileSecurity = async (id: string) => {
+    const info = await getProfileSecurityInfo(id);
+    setHint(info?.passwordHint || '');
+    setQuestion(info?.recoveryQuestion || '');
+    return info;
+  };
+
+  useEffect(() => {
     let cancelled = false;
-    const load = async () => {
-      if (!profile) return;
-      const info = await getProfileSecurityInfo(profile.id);
+    const loadInitial = async () => {
+      if (!profileId) return;
+      const info = await getProfileSecurityInfo(profileId);
       if (cancelled) return;
       setHint(info?.passwordHint || '');
       setQuestion(info?.recoveryQuestion || '');
-      const credentialsReady = Boolean(
-        profile.passwordHash &&
-        profile.passwordSalt &&
-        profile.recoveryAnswerHash &&
-        profile.recoveryAnswerSalt
-      );
-      setMode(credentialsReady ? 'login' : 'setup');
-      setPassword(''); setRecoveryAnswer(''); setNewPassword(''); setNewPasswordConfirm(''); setError(''); setShowHint(false);
+      // Existing profiles with complete credentials always land on the normal login.
+      // Only a genuinely credential-less profile enters one-time setup.
+      if (!info?.credentialsReady) {
+        setIdentity((profiles.find(p => p.id === profileId) || initialProfile)?.name || '');
+        setMode('setup');
+      } else {
+        setMode('login');
+      }
     };
-    load().catch(err => { if (!cancelled) setError(err?.message || 'Unable to load profile security settings.'); });
+    loadInitial().catch(err => { if (!cancelled) setError(err?.message || 'Unable to load profile security settings.'); });
     return () => { cancelled = true; };
-  }, [profileId, profile]);
+  }, [profileId]);
 
-  const selectProfile = (id: string) => {
-    setProfileId(id);
+  const resetTransient = () => {
+    setPassword('');
+    setRecoveryAnswer('');
+    setNewPassword('');
+    setNewPasswordConfirm('');
+    setNewHint('');
+    setNewQuestion('');
+    setNewRecoveryAnswer('');
+    setError('');
   };
 
-  const unlock = async () => {
-    if (!profile) return;
-    setBusy(true); setError('');
+  const login = async () => {
+    const profile = resolveProfile(identity);
+    if (!profile) throw new Error('Username / Profile not found.');
+    const info = await loadProfileSecurity(profile.id);
+    setProfileId(profile.id);
+    if (!info?.credentialsReady) {
+      setMode('setup');
+      throw new Error('This profile needs its one-time password setup first.');
+    }
+    const ok = await verifyProfilePassword(profile.id, password);
+    if (!ok) throw new Error('Incorrect password.');
+    onUnlocked(profile.id);
+  };
+
+  const submit = async () => {
+    setBusy(true);
+    setError('');
     try {
-      if (mode === 'setup') {
-        if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.');
-        if (newPassword !== newPasswordConfirm) throw new Error('Password and Confirm Password do not match.');
-        if (!newHint.trim() || !question.trim() || !recoveryAnswer.trim()) throw new Error('Hint, recovery question, and recovery answer are required.');
-        await setProfileCredentials(profile.id, newPassword, newHint, question, recoveryAnswer);
-        onUnlocked(profile.id);
+      if (mode === 'login') {
+        await login();
         return;
       }
-      if (mode === 'login') {
-        const ok = await verifyProfilePassword(profile.id, password);
-        if (!ok) throw new Error('Incorrect password.');
+      if (mode === 'setup') {
+        const profile = profiles.find(p => p.id === profileId) || resolveProfile(identity);
+        if (!profile) throw new Error('Profile not found.');
+        if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.');
+        if (newPassword !== newPasswordConfirm) throw new Error('Password and Confirm Password do not match.');
+        if (!newHint.trim() || !newQuestion.trim() || !newRecoveryAnswer.trim()) throw new Error('Password hint, recovery question, and recovery answer are required.');
+        await setProfileCredentials(profile.id, newPassword, newHint, newQuestion, newRecoveryAnswer);
         onUnlocked(profile.id);
         return;
       }
       if (mode === 'recovery') {
+        const profile = profiles.find(p => p.id === recoveryProfileId);
+        if (!profile) throw new Error('Profile not found.');
         const ok = await verifyProfileRecoveryAnswer(profile.id, recoveryAnswer);
         if (!ok) throw new Error('Recovery answer is incorrect.');
         setMode('reset');
@@ -116,6 +164,8 @@ function AppLockScreen({
         return;
       }
       if (mode === 'reset') {
+        const profile = profiles.find(p => p.id === recoveryProfileId);
+        if (!profile) throw new Error('Profile not found.');
         if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.');
         if (newPassword !== newPasswordConfirm) throw new Error('Password and Confirm Password do not match.');
         if (!newHint.trim()) throw new Error('Password hint is required.');
@@ -129,8 +179,69 @@ function AppLockScreen({
     }
   };
 
-  const showRecovery = () => {
-    setMode('recovery'); setError(''); setRecoveryAnswer(''); setShowHint(true);
+  const startForgotPassword = () => {
+    resetTransient();
+    setShowHelp(true);
+    setHelpMode('password');
+    setMode('login');
+  };
+
+  const continueForgotPassword = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const profile = resolveProfile(recoveryIdentity);
+      if (!profile) throw new Error('Username / Profile not found.');
+      const info = await loadProfileSecurity(profile.id);
+      if (!info?.credentialsReady) throw new Error('This profile has not completed password setup yet.');
+      setRecoveryProfileId(profile.id);
+      setMode('recovery');
+    } catch (e: any) {
+      setError(e?.message || 'Unable to start password recovery.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startCreate = () => {
+    resetTransient();
+    setShowCreate(true);
+    setShowHelp(false);
+    setMode('login');
+  };
+
+  const createProfile = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      if (!createName.trim()) throw new Error('Profile name is required.');
+      if (createPassword.length < 6) throw new Error('Password must be at least 6 characters.');
+      if (createPassword !== createPasswordConfirm) throw new Error('Password and Confirm Password do not match.');
+      if (!createHint.trim() || !createQuestion.trim() || !createRecoveryAnswer.trim()) throw new Error('Password hint, recovery question, and recovery answer are required.');
+      const current = (await storage.getSingleton<AppState>('appSettings')) || settings;
+      const id = generateUUID();
+      const slug = createName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+      const newProfile = {
+        id,
+        name: createName.trim(),
+        role: 'Local Profile',
+        email: `${slug}-${id.slice(0, 8)}@omlifeos.local`,
+        authType: 'local' as const,
+        avatarChar: createName.trim().charAt(0).toUpperCase(),
+        avatarColor: '#5d57c9',
+        isCurrent: false,
+        createdAt: Date.now()
+      };
+      await createLocalProfile(current, newProfile, createPassword, createHint, createQuestion, createRecoveryAnswer);
+      setCreateName(''); setCreatePassword(''); setCreatePasswordConfirm(''); setCreateHint(''); setCreateQuestion(''); setCreateRecoveryAnswer('');
+      setShowCreate(false);
+      setIdentity(newProfile.name);
+      onUnlocked(newProfile.id);
+    } catch (e: any) {
+      setError(e?.message || 'Unable to create local profile.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -138,54 +249,76 @@ function AppLockScreen({
       <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 text-white text-xl font-black">OM</div>
-          <h1 className="text-xl font-bold text-white">Om-LifeOS</h1>
-          <p className="mt-1 text-xs text-slate-400">Local profile security</p>
-        </div>
-        <div className="mb-4 space-y-2">
-          {profiles.map(p => (
-            <button key={p.id} type="button" onClick={() => selectProfile(p.id)} className={`w-full rounded-xl border p-3 text-left ${p.id === profile?.id ? 'border-indigo-500 bg-indigo-950/40' : 'border-slate-700 bg-slate-800/60'}`}>
-              <div className="text-sm font-bold text-white">{p.name}</div>
-              <div className="text-[11px] text-slate-400">{p.role || 'Local Profile'}</div>
-            </button>
-          ))}
+          <h1 className="text-xl font-bold text-white">User Login</h1>
+          <p className="mt-1 text-xs text-slate-400">Local profile access</p>
         </div>
 
-        {profile && mode === 'login' && (
+        {mode === 'login' && !showCreate && (
           <>
-            <div className="mb-3 text-sm font-semibold text-white">Enter password for {profile.name}</div>
-            <input autoFocus type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && unlock()} placeholder="Password" className="mb-3 h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white outline-none focus:border-indigo-500" />
-            <button type="button" onClick={unlock} disabled={busy} className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Checking…' : 'Unlock App'}</button>
-            <button type="button" onClick={showRecovery} className="mt-3 w-full text-xs font-semibold text-indigo-400 hover:underline">Forgot Password?</button>
-            {showHint && hint && <div className="mt-3 rounded-xl bg-slate-800 p-3 text-xs text-slate-300"><span className="font-bold text-slate-200">Hint:</span> {hint}</div>}
+            <div className="space-y-3">
+              <input autoFocus type="text" value={identity} onChange={e => setIdentity(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} placeholder="Username / Email Id" className="h-11 w-full rounded-full border border-slate-700 bg-slate-800 px-5 text-sm text-white outline-none focus:border-indigo-500" />
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} placeholder="Password" className="h-11 w-full rounded-full border border-slate-700 bg-slate-800 px-5 text-sm text-white outline-none focus:border-indigo-500" />
+              <button type="button" onClick={submit} disabled={busy} className="w-full rounded-full bg-indigo-600 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Checking…' : 'Login'}</button>
+            </div>
+
+            <button type="button" onClick={() => { setShowHelp(v => !v); setHelpMode('choose'); setError(''); }} className="mt-4 w-full text-xs font-semibold text-slate-400 hover:text-white hover:underline">
+              Forgot Username / Password?
+            </button>
+            {showHelp && (
+              <div className="mt-3 rounded-2xl border border-slate-700 bg-slate-800/70 p-3 space-y-2">
+                {helpMode === 'choose' && (
+                  <div className="grid grid-cols-1 gap-2">
+                    <button type="button" onClick={() => setHelpMode('username')} className="rounded-xl border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200">Forgot Username</button>
+                    <button type="button" onClick={startForgotPassword} className="rounded-xl border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200">Forgot Password</button>
+                    <button type="button" onClick={startCreate} className="rounded-xl border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200">Create Local Profile</button>
+                  </div>
+                )}
+                {helpMode === 'username' && (
+                  <div>
+                    <div className="mb-2 text-xs text-slate-300">Your local profiles:</div>
+                    <div className="space-y-1">
+                      {profiles.map(p => <div key={p.id} className="rounded-lg bg-slate-900 px-3 py-2 text-xs text-white">{p.name}</div>)}
+                    </div>
+                  </div>
+                )}
+                {helpMode === 'password' && (
+                  <div className="space-y-2">
+                    <input type="text" value={recoveryIdentity} onChange={e => setRecoveryIdentity(e.target.value)} placeholder="Username / Email Id" className="h-10 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 text-xs text-white" />
+                    <button type="button" onClick={continueForgotPassword} disabled={busy} className="w-full rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white">Continue</button>
+                  </div>
+                )}
+              </div>
+            )}
+
           </>
         )}
 
-        {profile && mode === 'setup' && (
+        {mode === 'setup' && (
           <>
-            <div className="mb-3 text-sm font-semibold text-white">Create password for {profile.name}</div>
+            <div className="mb-3 text-sm font-semibold text-white">Create password for {profiles.find(p => p.id === profileId)?.name || identity}</div>
             <div className="space-y-2">
               <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Create Password (min 6)" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
               <input type="password" value={newPasswordConfirm} onChange={e => setNewPasswordConfirm(e.target.value)} placeholder="Confirm Password" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
               <input type="text" value={newHint} onChange={e => setNewHint(e.target.value)} placeholder="Password Hint / Clue" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
-              <input type="text" value={question} onChange={e => setQuestion(e.target.value)} placeholder="Recovery Question" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
-              <input type="text" value={recoveryAnswer} onChange={e => setRecoveryAnswer(e.target.value)} placeholder="Recovery Answer" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+              <input type="text" value={newQuestion} onChange={e => setNewQuestion(e.target.value)} placeholder="Recovery Question" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+              <input type="text" value={newRecoveryAnswer} onChange={e => setNewRecoveryAnswer(e.target.value)} placeholder="Recovery Answer" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
             </div>
-            <button type="button" onClick={unlock} disabled={busy} className="mt-3 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Saving…' : 'Create Password & Open App'}</button>
+            <button type="button" onClick={submit} disabled={busy} className="mt-3 w-full rounded-full bg-indigo-600 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Saving…' : 'Create Password & Open App'}</button>
           </>
         )}
 
-        {profile && mode === 'recovery' && (
+        {mode === 'recovery' && (
           <>
             <div className="mb-2 text-sm font-semibold text-white">Password Recovery</div>
             <div className="mb-3 rounded-xl bg-slate-800 p-3 text-xs text-slate-300"><span className="font-bold text-slate-200">Hint:</span> {hint || 'No hint was saved.'}</div>
             <div className="mb-2 text-xs font-semibold text-slate-300">{question || 'Recovery question not configured.'}</div>
             <input autoFocus type="text" value={recoveryAnswer} onChange={e => setRecoveryAnswer(e.target.value)} placeholder="Recovery Answer" className="mb-3 h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
-            <button type="button" onClick={unlock} disabled={busy} className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white">Verify Recovery Answer</button>
-            <button type="button" onClick={() => setMode('login')} className="mt-3 w-full text-xs text-slate-400 hover:text-white">Back to password</button>
+            <button type="button" onClick={submit} disabled={busy} className="w-full rounded-full bg-indigo-600 py-3 text-sm font-bold text-white">Verify Recovery Answer</button>
+            <button type="button" onClick={() => { setMode('login'); setShowHelp(true); setHelpMode('password'); resetTransient(); }} className="mt-3 w-full text-xs text-slate-400 hover:text-white">Back to login</button>
           </>
         )}
 
-        {profile && mode === 'reset' && (
+        {mode === 'reset' && (
           <>
             <div className="mb-3 text-sm font-semibold text-white">Set a New Password</div>
             <div className="space-y-2">
@@ -193,9 +326,24 @@ function AppLockScreen({
               <input type="password" value={newPasswordConfirm} onChange={e => setNewPasswordConfirm(e.target.value)} placeholder="Confirm New Password" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
               <input type="text" value={newHint} onChange={e => setNewHint(e.target.value)} placeholder="New Password Hint" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
             </div>
-            <button type="button" onClick={unlock} disabled={busy} className="mt-3 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white">Reset Password & Open App</button>
+            <button type="button" onClick={submit} disabled={busy} className="mt-3 w-full rounded-full bg-indigo-600 py-3 text-sm font-bold text-white">Reset Password & Open App</button>
           </>
         )}
+
+        {showCreate && (
+          <div className="space-y-2">
+            <div className="mb-2 text-sm font-semibold text-white">Create Local Profile</div>
+            <input type="text" value={createName} onChange={e => setCreateName(e.target.value)} placeholder="Profile Name" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+            <input type="password" value={createPassword} onChange={e => setCreatePassword(e.target.value)} placeholder="Password (min 6)" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+            <input type="password" value={createPasswordConfirm} onChange={e => setCreatePasswordConfirm(e.target.value)} placeholder="Confirm Password" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+            <input type="text" value={createHint} onChange={e => setCreateHint(e.target.value)} placeholder="Password Hint / Clue" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+            <input type="text" value={createQuestion} onChange={e => setCreateQuestion(e.target.value)} placeholder="Recovery Question" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+            <input type="text" value={createRecoveryAnswer} onChange={e => setCreateRecoveryAnswer(e.target.value)} placeholder="Recovery Answer" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+            <button type="button" onClick={createProfile} disabled={busy} className="mt-2 w-full rounded-full bg-indigo-600 py-3 text-sm font-bold text-white">{busy ? 'Creating…' : 'Create Profile & Open App'}</button>
+            <button type="button" onClick={() => { setShowCreate(false); setError(''); }} className="w-full py-2 text-xs text-slate-400 hover:text-white">Back to login</button>
+          </div>
+        )}
+
         {error && <div className="mt-4 rounded-xl border border-red-900/60 bg-red-950/40 p-3 text-xs text-red-300">{error}</div>}
       </div>
     </div>

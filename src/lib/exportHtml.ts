@@ -451,7 +451,7 @@ export function generateCompleteStandaloneHtml(fullData: Record<string, any>): s
       /* Never force every section onto a new sheet. Let the browser flow content naturally. */
       .tab-content {
         display: block !important;
-        margin: 0 0 8mm 0 !important;
+        margin: 0 0 4mm 0 !important;
         padding: 0 !important;
         page-break-before: auto !important;
         page-break-after: auto !important;
@@ -459,16 +459,49 @@ export function generateCompleteStandaloneHtml(fullData: Record<string, any>): s
         break-after: auto !important;
       }
 
-      /* Keep individual cards/rows together where practical without creating huge gaps. */
-      .metric-card, .card, .task-item, .note-card, .goal-card, .routine-card,
-      table, tr, .banner {
+      /* Keep small atomic items together, but let larger cards flow across pages
+         so the browser does not leave large blank areas at page bottoms. */
+      .task-item, tr {
         break-inside: avoid;
         page-break-inside: avoid;
+      }
+
+      .card {
+        break-inside: auto;
+        page-break-inside: auto;
+        box-shadow: none !important;
       }
 
       .section-title, h1, h2, h3 {
         break-after: avoid;
         page-break-after: avoid;
+      }
+
+      /* CSS Grid can leave large unfillable gaps when a print page breaks.
+         Use normal block flow for report sections so content packs naturally. */
+      .metrics-grid, .notes-grid,
+      [style*="display:grid"], [style*="display: grid"] {
+        display: block !important;
+        margin-bottom: 4mm !important;
+      }
+
+      .metrics-grid > *, .notes-grid > *,
+      [style*="display:grid"] > *, [style*="display: grid"] > * {
+        margin-bottom: 3mm !important;
+      }
+
+      .metrics-grid > *:last-child, .notes-grid > *:last-child,
+      [style*="display:grid"] > *:last-child, [style*="display: grid"] > *:last-child {
+        margin-bottom: 0 !important;
+      }
+
+      .metric-card, .card, .task-item, .note-card, .goal-card, .routine-card, .banner {
+        padding: 3mm !important;
+      }
+
+      .section-title {
+        margin-top: 3mm !important;
+        margin-bottom: 2mm !important;
       }
 
       table {
@@ -483,8 +516,8 @@ export function generateCompleteStandaloneHtml(fullData: Record<string, any>): s
       }
 
       .footer {
-        margin-top: 8mm !important;
-        padding: 6mm 0 !important;
+        margin-top: 4mm !important;
+        padding: 3mm 0 !important;
       }
 
       .card {
