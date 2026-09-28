@@ -419,39 +419,35 @@ export function generateCompleteStandaloneHtml(fullData: Record<string, any>): s
       .search-input:focus { width: 160px; }
     }
     @media print {
-      @page {
-        size: A4;
-        margin: 10mm;
-      }
+      @page { size: A4; margin: 8mm; }
 
       html, body {
         width: auto !important;
-        min-height: 0 !important;
         height: auto !important;
+        min-height: 0 !important;
         margin: 0 !important;
         padding: 0 !important;
-        background: white !important;
-        color: black !important;
+        background: #fff !important;
+        color: #111 !important;
       }
 
-      header, aside, .header-actions, .btn { display: none !important; }
+      header, aside, .header-actions, .btn, .banner, #tab-database {
+        display: none !important;
+      }
 
-      .layout-container {
+      .layout-container, main {
         display: block !important;
         min-height: 0 !important;
-      }
-
-      main {
         width: 100% !important;
         max-width: none !important;
         margin: 0 !important;
         padding: 0 !important;
       }
 
-      /* Never force every section onto a new sheet. Let the browser flow content naturally. */
+      /* One continuous report: never force a new sheet between sections. */
       .tab-content {
         display: block !important;
-        margin: 0 0 4mm 0 !important;
+        margin: 0 0 5mm 0 !important;
         padding: 0 !important;
         page-break-before: auto !important;
         page-break-after: auto !important;
@@ -459,71 +455,52 @@ export function generateCompleteStandaloneHtml(fullData: Record<string, any>): s
         break-after: auto !important;
       }
 
-      /* Keep small atomic items together, but let larger cards flow across pages
-         so the browser does not leave large blank areas at page bottoms. */
-      .task-item, tr {
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
       .card {
-        break-inside: auto;
-        page-break-inside: auto;
+        margin: 0 0 4mm 0 !important;
+        padding: 4mm !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 3mm !important;
         box-shadow: none !important;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
       }
 
-      .section-title, h1, h2, h3 {
-        break-after: avoid;
-        page-break-after: avoid;
+      .card-header {
+        margin-bottom: 2mm !important;
+        padding-bottom: 2mm !important;
       }
 
-      /* CSS Grid can leave large unfillable gaps when a print page breaks.
-         Use normal block flow for report sections so content packs naturally. */
+      h1, h2, h3, .section-title {
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+      }
+
+      table { width: 100% !important; border-collapse: collapse !important; }
+      thead { display: table-header-group !important; }
+      tr { break-inside: avoid !important; page-break-inside: avoid !important; }
+
+      /* Avoid tall CSS-grid rows creating blank space at the bottom of a sheet. */
       .metrics-grid, .notes-grid,
-      [style*="display:grid"], [style*="display: grid"] {
+      #tab-goals .card > div[style*="display:grid"],
+      #tab-habits .card > div[style*="display:grid"] {
         display: block !important;
-        margin-bottom: 4mm !important;
-      }
-
-      .metrics-grid > *, .notes-grid > *,
-      [style*="display:grid"] > *, [style*="display: grid"] > * {
+        column-count: 2 !important;
+        column-gap: 4mm !important;
         margin-bottom: 3mm !important;
       }
 
-      .metrics-grid > *:last-child, .notes-grid > *:last-child,
-      [style*="display:grid"] > *:last-child, [style*="display: grid"] > *:last-child {
-        margin-bottom: 0 !important;
-      }
-
-      .metric-card, .card, .task-item, .note-card, .goal-card, .routine-card, .banner {
-        padding: 3mm !important;
-      }
-
-      .section-title {
-        margin-top: 3mm !important;
-        margin-bottom: 2mm !important;
-      }
-
-      table {
+      .metrics-grid > *, .notes-grid > *,
+      #tab-goals .card > div[style*="display:grid"] > *,
+      #tab-habits .card > div[style*="display:grid"] > * {
+        display: block !important;
         width: 100% !important;
-        border-collapse: collapse !important;
+        margin: 0 0 3mm 0 !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
       }
 
-      .json-box {
-        max-height: none !important;
-        overflow: visible !important;
-        white-space: pre-wrap !important;
-      }
-
-      .footer {
-        margin-top: 4mm !important;
-        padding: 3mm 0 !important;
-      }
-
-      .card {
-        border: 1px solid #ccc !important;
-        box-shadow: none !important;
-      }
+      .metric-card, .note-card, .task-item { padding: 3mm !important; }
+      .footer { margin-top: 3mm !important; padding: 2mm 0 !important; }
     }
   </style>
 </head>
