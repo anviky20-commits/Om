@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import {
   X, Users, UserPlus, Check, Laptop, ShieldCheck,
-  Mail, RefreshCw, Download, Upload,
+  RefreshCw, Download, Upload,
   Copy, HardDrive
 } from 'lucide-react';
 import { UserProfile, AppState } from '../types';
-import { storage, generateUUID } from '../lib/storage';
+import { storage, generateUUID, createLocalProfile, deleteLocalProfile } from '../lib/storage';
 
 interface MultiUserModalProps {
   isOpen: boolean;
@@ -24,17 +24,16 @@ export const MultiUserModal: React.FC<MultiUserModalProps> = ({
   onSuccess,
   onError
 }) => {
-  const [activeTab, setActiveTab] = useState<'profiles' | 'auth' | 'pairing'>('profiles');
+  const [activeTab, setActiveTab] = useState<'profiles' | 'pairing'>('profiles');
 
   // New Profile Form
   const [newProfileName, setNewProfileName] = useState('');
   const [newProfileRole, setNewProfileRole] = useState('Family Member');
-
-  // Auth form states
-  const [emailInput, setEmailInput] = useState('yashok969492@gmail.com');
-  const [passwordInput, setPasswordInput] = useState('');
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [newProfilePassword, setNewProfilePassword] = useState('');
+  const [newProfilePasswordConfirm, setNewProfilePasswordConfirm] = useState('');
+  const [newProfileHint, setNewProfileHint] = useState('');
+  const [newProfileRecoveryQuestion, setNewProfileRecoveryQuestion] = useState('');
+  const [newProfileRecoveryAnswer, setNewProfileRecoveryAnswer] = useState('');
 
   // Pairing state
   const [pairCode, setPairCode] = useState(appSettings?.computerPairCode || 'OM-8392');
@@ -77,147 +76,57 @@ export const MultiUserModal: React.FC<MultiUserModalProps> = ({
   const handleCreateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProfileName.trim()) return;
+    if (newProfilePassword !== newProfilePasswordConfirm) {
+      onError('Password and Confirm Password do not match.');
+      return;
+    }
+    if (newProfilePassword.length < 6) {
+      onError('Password must be at least 6 characters.');
+      return;
+    }
+    if (!newProfileHint.trim() || !newProfileRecoveryQuestion.trim() || !newProfileRecoveryAnswer.trim()) {
+      onError('Password hint, recovery question, and recovery answer are required.');
+      return;
+    }
 
     try {
       const settings = (await storage.getSingleton<AppState>('appSettings')) || ({} as AppState);
       const now = Date.now();
-      const rolePrefix = newProfileRole.toLowerCase().includes('family')
-        ? 'family'
-        : newProfileRole.toLowerCase().includes('team')
-        ? 'team'
-        : 'user';
       const cleanSlug = newProfileName.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-      // Assign avatar color & character
       const colors = ['#7c3aed', '#059669', '#ea580c', '#0284c7', '#db2777', '#4f46e5'];
       const avatarColor = colors[(settings.profiles?.length || 0) % colors.length];
       const avatarChar = newProfileName.trim().charAt(0).toUpperCase();
-
       const newProf: UserProfile = {
         id: generateUUID(),
         name: newProfileName.trim(),
         role: newProfileRole,
-        email: `${cleanSlug || rolePrefix}@omlifeos.local`,
+        email: `${cleanSlug || 'user'}-${newProf.id.slice(0, 8)}@omlifeos.local`,
         avatarColor,
         avatarChar,
         authType: 'local',
         isCurrent: false,
         createdAt: now
       };
-
-      const updated = [...(settings.profiles || []), newProf];
-      settings.profiles = updated;
-      await storage.setSingleton('appSettings', settings);
+      await createLocalProfile(settings, newProf, newProfilePassword, newProfileHint, newProfileRecoveryQuestion, newProfileRecoveryAnswer);
 
       onSuccess(`User profile "${newProfileName}" created successfully`);
-      setNewProfileName('');
+      setNewProfileName(''); setNewProfilePassword(''); setNewProfilePasswordConfirm('');
+      setNewProfileHint(''); setNewProfileRecoveryQuestion(''); setNewProfileRecoveryAnswer('');
       onRefresh();
     } catch (e: any) {
       onError(`Failed to create profile: ${e.message}`);
     }
   };
 
-  // 1-Tap Google Sign-in handler
-  const handleGoogleSignIn = async (customEmail?: string) => {
-    setIsAuthenticating(true);
+  const handleDeleteProfile = async (profileId: string, profileName: string) => {
+    if (!window.confirm(`Delete local profile "${profileName}"? Its profile-owned app records will also be permanently deleted.`)) return;
     try {
-      const email = customEmail || emailInput || 'yashok969492@gmail.com';
-      const displayName = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-      const settings = (await storage.getSingleton<AppState>('appSettings')) || ({} as AppState);
-      settings.currentUser = {
-        name: displayName,
-        email,
-        provider: 'google'
-      };
-
-      // Check if a profile with this email already exists or add/update it
-      let existing = settings.profiles?.find(p => p.email?.toLowerCase() === email.toLowerCase());
-      if (existing) {
-        settings.profileId = existing.id;
-      } else {
-        const newProf: UserProfile = {
-          id: generateUUID(),
-          name: `${displayName} (Google)`,
-          role: 'Owner',
-          email,
-          avatarColor: '#4285F4',
-          avatarChar: displayName.charAt(0).toUpperCase(),
-          authType: 'google',
-          isCurrent: true,
-          createdAt: Date.now()
-        };
-        settings.profiles = [...(settings.profiles || []), newProf];
-        settings.profileId = newProf.id;
-      }
-
-      await storage.setSingleton('appSettings', settings);
-      onSuccess(`✓ Signed in with Google account: ${email}`);
+      await deleteLocalProfile(profileId);
+      onSuccess(`Profile "${profileName}" deleted.`);
       onRefresh();
     } catch (e: any) {
-      onError(`Google sign-in error: ${e.message}`);
-    } finally {
-      setIsAuthenticating(false);
+      onError(e.message);
     }
-  };
-
-  // Email / Password sign-in handler
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!emailInput.trim()) return;
-
-    setIsAuthenticating(true);
-    try {
-      const email = emailInput.trim();
-      const displayName = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-      const settings = (await storage.getSingleton<AppState>('appSettings')) || ({} as AppState);
-      settings.currentUser = {
-        name: displayName,
-        email,
-        provider: 'email'
-      };
-
-      let existing = settings.profiles?.find(p => p.email?.toLowerCase() === email.toLowerCase());
-      if (existing) {
-        settings.profileId = existing.id;
-      } else {
-        const newProf: UserProfile = {
-          id: generateUUID(),
-          name: displayName,
-          role: 'Member',
-          email,
-          avatarColor: '#6366f1',
-          avatarChar: displayName.charAt(0).toUpperCase(),
-          authType: 'email',
-          isCurrent: true,
-          createdAt: Date.now()
-        };
-        settings.profiles = [...(settings.profiles || []), newProf];
-        settings.profileId = newProf.id;
-      }
-
-      await storage.setSingleton('appSettings', settings);
-      onSuccess(`✓ Authenticated via Email: ${email}`);
-      setPasswordInput('');
-      onRefresh();
-    } catch (e: any) {
-      onError(`Authentication error: ${e.message}`);
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
-  const handleSignOutToLocal = async () => {
-    const settings = (await storage.getSingleton<AppState>('appSettings')) || ({} as AppState);
-    settings.currentUser = {
-      name: 'Om Master',
-      email: 'master@omlifeos.local',
-      provider: 'local'
-    };
-    await storage.setSingleton('appSettings', settings);
-    onSuccess('Switched to Local Offline Vault Mode (100% Private)');
-    onRefresh();
   };
 
   const handleCopyPairCode = async () => {
@@ -329,17 +238,6 @@ export const MultiUserModal: React.FC<MultiUserModalProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('auth')}
-            className={`pb-2 px-3 text-xs font-semibold border-b-2 transition-colors ${
-              activeTab === 'auth'
-                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
-            }`}
-          >
-            Google / Email / Local
-          </button>
-          <button
-            type="button"
             onClick={() => setActiveTab('pairing')}
             className={`pb-2 px-3 text-xs font-semibold border-b-2 transition-colors ${
               activeTab === 'pairing'
@@ -424,6 +322,15 @@ export const MultiUserModal: React.FC<MultiUserModalProps> = ({
                             Switch
                           </button>
                         )}
+                        {profiles.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProfile(prof.id, prof.name)}
+                            className="ml-1 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -459,6 +366,12 @@ export const MultiUserModal: React.FC<MultiUserModalProps> = ({
                     <option value="Guest / Student">Guest / Student</option>
                   </select>
 
+                  <input type="password" required minLength={6} value={newProfilePassword} onChange={e => setNewProfilePassword(e.target.value)} placeholder="Password (min 6 characters)" className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                  <input type="password" required minLength={6} value={newProfilePasswordConfirm} onChange={e => setNewProfilePasswordConfirm(e.target.value)} placeholder="Confirm Password" className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                  <input type="text" required value={newProfileHint} onChange={e => setNewProfileHint(e.target.value)} placeholder="Password Hint / Clue" className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                  <input type="text" required value={newProfileRecoveryQuestion} onChange={e => setNewProfileRecoveryQuestion(e.target.value)} placeholder="Recovery Question" className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+                  <input type="text" required value={newProfileRecoveryAnswer} onChange={e => setNewProfileRecoveryAnswer(e.target.value)} placeholder="Recovery Answer" className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
+
                   <button
                     type="submit"
                     className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-500 active:scale-98 transition-all"
@@ -470,169 +383,7 @@ export const MultiUserModal: React.FC<MultiUserModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: AUTHENTICATION (Google / Email / Local Offline) */}
-          {activeTab === 'auth' && (
-            <div className="space-y-4">
-              {/* Current Active Account Status */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900/60 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Active Identity & Session
-                  </div>
-                  <div className="mt-0.5 text-xs font-bold text-slate-900 dark:text-white">
-                    {currentUser?.name || 'Local Master User'}
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    {currentUser?.email || 'master@omlifeos.local'} · Provider: {currentUser?.provider || 'local'}
-                  </div>
-                </div>
-
-                {currentUser?.provider !== 'local' && (
-                  <button
-                    type="button"
-                    onClick={handleSignOutToLocal}
-                    className="rounded-xl border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
-                  >
-                    Disconnect
-                  </button>
-                )}
-              </div>
-
-              {/* 1. Google 1-Tap Login */}
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {/* Google Colorful G SVG */}
-                    <svg className="h-4 w-4" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                      />
-                    </svg>
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">
-                      Google Account Sign-In
-                    </span>
-                  </div>
-                  {currentUser?.provider === 'google' && (
-                    <span className="rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 px-2 py-0.5 text-[10px] font-bold">
-                      Connected
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Sign in with your Google account to associate workspaces and cloud synchronization.
-                </p>
-
-                {/* 1-Tap Google Button with User's specific email pre-configured */}
-                <button
-                  type="button"
-                  onClick={() => handleGoogleSignIn('yashok969492@gmail.com')}
-                  disabled={isAuthenticating}
-                  className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-xs font-semibold text-slate-800 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 shadow-2xs transition-all active:scale-98"
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
-                  <span>Continue as yashok969492@gmail.com</span>
-                </button>
-              </div>
-
-              {/* 2. Email / Password Login */}
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">
-                      {isRegisterMode ? 'Create Account with Email' : 'Email & Password Login'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsRegisterMode(!isRegisterMode)}
-                    className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
-                  >
-                    {isRegisterMode ? 'Switch to Sign In' : 'Need an account?'}
-                  </button>
-                </div>
-
-                <form onSubmit={handleEmailAuth} className="space-y-2.5">
-                  <input
-                    type="email"
-                    required
-                    value={emailInput}
-                    onChange={e => setEmailInput(e.target.value)}
-                    placeholder="name@example.com"
-                    className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  />
-                  <input
-                    type="password"
-                    required
-                    value={passwordInput}
-                    onChange={e => setPasswordInput(e.target.value)}
-                    placeholder="Enter password..."
-                    className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isAuthenticating}
-                    className="w-full rounded-xl bg-indigo-600 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 active:scale-98 transition-all"
-                  >
-                    {isRegisterMode ? 'Create Account' : 'Sign In with Email'}
-                  </button>
-                </form>
-              </div>
-
-              {/* 3. Local Offline Vault Mode */}
-              <div className="rounded-2xl border border-slate-200/90 bg-emerald-50/40 p-4 dark:border-slate-800 dark:bg-emerald-950/20 space-y-2">
-                <div className="flex items-center gap-2">
-                  <HardDrive className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
-                    Local Offline Vault Mode (Zero-Cloud / 100% Private)
-                  </span>
-                </div>
-                <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 leading-relaxed">
-                  No remote servers or cloud accounts required. All documents, notes, and records are cryptographically stored on your device for absolute privacy and 10+ years durability.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleSignOutToLocal}
-                  className="rounded-xl border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-300 transition-colors"
-                >
-                  Activate Pure Local Vault
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: 10-YR VAULT & PEER PAIRING */}
+          {/* TAB 2: 10-YR VAULT & PEER PAIRING */}
           {activeTab === 'pairing' && (
             <div className="space-y-4">
               {/* 6-Digit Pairing Code */}

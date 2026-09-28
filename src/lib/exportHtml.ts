@@ -419,10 +419,78 @@ export function generateCompleteStandaloneHtml(fullData: Record<string, any>): s
       .search-input:focus { width: 160px; }
     }
     @media print {
+      @page {
+        size: A4;
+        margin: 10mm;
+      }
+
+      html, body {
+        width: auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        color: black !important;
+      }
+
       header, aside, .header-actions, .btn { display: none !important; }
-      .tab-content { display: block !important; margin-bottom: 2rem; page-break-after: always; }
-      body { background: white !important; color: black !important; }
-      .card { border: 1px solid #ccc !important; box-shadow: none !important; }
+
+      .layout-container {
+        display: block !important;
+        min-height: 0 !important;
+      }
+
+      main {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      /* Never force every section onto a new sheet. Let the browser flow content naturally. */
+      .tab-content {
+        display: block !important;
+        margin: 0 0 8mm 0 !important;
+        padding: 0 !important;
+        page-break-before: auto !important;
+        page-break-after: auto !important;
+        break-before: auto !important;
+        break-after: auto !important;
+      }
+
+      /* Keep individual cards/rows together where practical without creating huge gaps. */
+      .metric-card, .card, .task-item, .note-card, .goal-card, .routine-card,
+      table, tr, .banner {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .section-title, h1, h2, h3 {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+
+      table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+      }
+
+      .json-box {
+        max-height: none !important;
+        overflow: visible !important;
+        white-space: pre-wrap !important;
+      }
+
+      .footer {
+        margin-top: 8mm !important;
+        padding: 6mm 0 !important;
+      }
+
+      .card {
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+      }
     }
   </style>
 </head>

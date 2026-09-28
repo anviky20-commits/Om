@@ -273,6 +273,12 @@ export interface FinanceTransaction {
   linkedLoanId?: string | null;
   linkedLoanPaymentId?: string | null;
   linkedInvestmentId?: string | null;
+  linkedReceiptId?: string | null;
+  fileName?: string;
+  fileData?: string;
+  fileSize?: string;
+  fileType?: string;
+  attachments?: string[];
   ledgerOnly?: boolean;
   createdAt: number;
   updatedAt?: number;
@@ -535,6 +541,7 @@ export interface ReceiptItem {
   fileSize?: string;
   fileType?: string;
   attachments?: string[];
+  linkedTransactionId?: string | null;
   createdAt: number;
   updatedAt?: number;
 }
@@ -748,7 +755,13 @@ export interface UserProfile {
   role?: string;
   avatarColor?: string;
   avatarChar?: string;
-  authType?: 'google' | 'email' | 'local';
+  authType?: 'local';
+  passwordHash?: string;
+  passwordSalt?: string;
+  passwordHint?: string;
+  recoveryQuestion?: string;
+  recoveryAnswerHash?: string;
+  recoveryAnswerSalt?: string;
   isCurrent?: boolean;
   createdAt: number;
 }
@@ -759,7 +772,7 @@ export interface AppState {
   currentUser?: {
     email?: string;
     name?: string;
-    provider?: 'google' | 'email' | 'local';
+    provider?: 'local';
     avatarUrl?: string;
   };
   themeMode: 'light' | 'dark';

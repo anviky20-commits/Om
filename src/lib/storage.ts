@@ -41,10 +41,156 @@ export function generateUUID(): string {
   return `om-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+
+function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function deriveCredentialHash(secret: string, salt: Uint8Array): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error('Secure Web Crypto is unavailable in this browser.');
+  const encoder = new TextEncoder();
+  const key = await globalThis.crypto.subtle.importKey(
+    'raw', encoder.encode(secret), 'PBKDF2', false, ['deriveBits']
+  );
+  const bits = await globalThis.crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: 150000, hash: 'SHA-256' },
+    key,
+    256
+  );
+  return bytesToBase64(new Uint8Array(bits));
+}
+
+function createSalt(): Uint8Array {
+  const salt = new Uint8Array(16);
+  if (!globalThis.crypto?.getRandomValues) throw new Error('Secure random generation is unavailable.');
+  globalThis.crypto.getRandomValues(salt);
+  return salt;
+}
+
+export async function setProfileCredentials(
+  profileId: string,
+  password: string,
+  passwordHint: string,
+  recoveryQuestion: string,
+  recoveryAnswer: string
+): Promise<void> {
+  if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+  if (!passwordHint.trim()) throw new Error('Password hint is required.');
+  if (!recoveryQuestion.trim() || !recoveryAnswer.trim()) throw new Error('Recovery question and answer are required.');
+
+  const settings = await storage.getSingleton<AppState>('appSettings');
+  const profile = settings?.profiles?.find(p => p.id === profileId);
+  if (!settings || !profile) throw new Error('Profile not found.');
+
+  const passwordSalt = createSalt();
+  const recoverySalt = createSalt();
+  profile.passwordSalt = bytesToBase64(passwordSalt);
+  profile.passwordHash = await deriveCredentialHash(password, passwordSalt);
+  profile.passwordHint = passwordHint.trim();
+  profile.recoveryQuestion = recoveryQuestion.trim();
+  profile.recoveryAnswerSalt = bytesToBase64(recoverySalt);
+  profile.recoveryAnswerHash = await deriveCredentialHash(recoveryAnswer.trim().toLowerCase(), recoverySalt);
+  await storage.setSingleton('appSettings', settings);
+}
+
+export async function createLocalProfile(
+  settings: AppState,
+  profile: UserProfile,
+  password: string,
+  passwordHint: string,
+  recoveryQuestion: string,
+  recoveryAnswer: string
+): Promise<void> {
+  if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+  if (!passwordHint.trim()) throw new Error('Password hint is required.');
+  if (!recoveryQuestion.trim() || !recoveryAnswer.trim()) throw new Error('Recovery question and answer are required.');
+
+  const passwordSalt = createSalt();
+  const recoverySalt = createSalt();
+  const credentialedProfile: UserProfile = {
+    ...profile,
+    authType: 'local',
+    passwordSalt: bytesToBase64(passwordSalt),
+    passwordHash: await deriveCredentialHash(password, passwordSalt),
+    passwordHint: passwordHint.trim(),
+    recoveryQuestion: recoveryQuestion.trim(),
+    recoveryAnswerSalt: bytesToBase64(recoverySalt),
+    recoveryAnswerHash: await deriveCredentialHash(recoveryAnswer.trim().toLowerCase(), recoverySalt)
+  };
+  const nextSettings: AppState = {
+    ...settings,
+    profiles: [...(settings.profiles || []), credentialedProfile]
+  };
+  await storage.setSingleton('appSettings', nextSettings);
+}
+
+export async function resetProfilePassword(profileId: string, password: string, passwordHint: string): Promise<void> {
+  if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+  if (!passwordHint.trim()) throw new Error('Password hint is required.');
+  const settings = await storage.getSingleton<AppState>('appSettings');
+  const profile = settings?.profiles?.find(p => p.id === profileId);
+  if (!settings || !profile || !profile.recoveryAnswerHash || !profile.recoveryAnswerSalt) throw new Error('Profile recovery data is unavailable.');
+  const passwordSalt = createSalt();
+  profile.passwordSalt = bytesToBase64(passwordSalt);
+  profile.passwordHash = await deriveCredentialHash(password, passwordSalt);
+  profile.passwordHint = passwordHint.trim();
+  await storage.setSingleton('appSettings', settings);
+}
+
+export async function verifyProfilePassword(profileId: string, password: string): Promise<boolean> {
+  const settings = await storage.getSingleton<AppState>('appSettings');
+  const profile = settings?.profiles?.find(p => p.id === profileId);
+  if (!profile?.passwordHash || !profile.passwordSalt) return false;
+  const candidate = await deriveCredentialHash(password, base64ToBytes(profile.passwordSalt));
+  return candidate === profile.passwordHash;
+}
+
+export async function verifyProfileRecoveryAnswer(profileId: string, answer: string): Promise<boolean> {
+  const settings = await storage.getSingleton<AppState>('appSettings');
+  const profile = settings?.profiles?.find(p => p.id === profileId);
+  if (!profile?.recoveryAnswerHash || !profile.recoveryAnswerSalt) return false;
+  const candidate = await deriveCredentialHash(answer.trim().toLowerCase(), base64ToBytes(profile.recoveryAnswerSalt));
+  return candidate === profile.recoveryAnswerHash;
+}
+
+export async function getProfileSecurityInfo(profileId: string): Promise<Pick<UserProfile, 'passwordHint' | 'recoveryQuestion'> | null> {
+  const settings = await storage.getSingleton<AppState>('appSettings');
+  const profile = settings?.profiles?.find(p => p.id === profileId);
+  if (!profile) return null;
+  return { passwordHint: profile.passwordHint, recoveryQuestion: profile.recoveryQuestion };
+}
+
+export async function deleteLocalProfile(profileId: string): Promise<AppState> {
+  const settings = await storage.getSingleton<AppState>('appSettings');
+  if (!settings?.profiles?.length) throw new Error('No profiles exist.');
+  if (settings.profiles.length <= 1) throw new Error('At least one local profile must remain.');
+  const deletingCurrent = settings.profileId === profileId;
+  settings.profiles = settings.profiles.filter(p => p.id !== profileId);
+  if (!settings.profiles.length) throw new Error('At least one local profile must remain.');
+  if (deletingCurrent) {
+    const next = settings.profiles[0];
+    settings.profileId = next.id;
+    settings.profiles = settings.profiles.map(p => ({ ...p, isCurrent: p.id === next.id }));
+    settings.currentUser = { name: next.name, email: next.email, provider: 'local' };
+  }
+  await storage.deleteProfileAndSettings(profileId, settings);
+  return settings;
+}
+
 class StorageEngine {
   private dbPromise: Promise<IDBDatabase> | null = null;
   private channel: BroadcastChannel | null = null;
   public deviceId: string = generateUUID();
+  private activeProfileId: string | null = null;
 
   constructor() {
     try {
@@ -54,6 +200,19 @@ class StorageEngine {
 
   public getChannel() {
     return this.channel;
+  }
+
+  public setActiveProfile(profileId: string | null) {
+    this.activeProfileId = profileId || null;
+  }
+
+  public getActiveProfileId(): string | null {
+    return this.activeProfileId;
+  }
+
+  private withActiveProfile<T extends { id: string }>(storeName: string, item: T): T {
+    if (!this.activeProfileId || !ENTITY_STORES.includes(storeName)) return item;
+    return { ...(item as any), profileId: this.activeProfileId } as T;
   }
 
   public open(): Promise<IDBDatabase> {
@@ -89,20 +248,39 @@ class StorageEngine {
       const tx = db.transaction(storeName, 'readonly');
       const store = tx.objectStore(storeName);
       const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
+      req.onsuccess = () => {
+        const rows = (req.result || []) as any[];
+        if (!this.activeProfileId || !ENTITY_STORES.includes(storeName)) {
+          resolve(rows as T[]);
+          return;
+        }
+        resolve(rows.filter(row => row.profileId === this.activeProfileId) as T[]);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async getAllRaw<T>(storeName: string): Promise<T[]> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readonly');
+      const store = tx.objectStore(storeName);
+      const req = store.getAll();
+      req.onsuccess = () => resolve((req.result || []) as T[]);
       req.onerror = () => reject(req.error);
     });
   }
 
   public async put<T extends { id: string }>(storeName: string, item: T): Promise<T> {
     const db = await this.open();
+    const scopedItem = this.withActiveProfile(storeName, item);
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
-      const req = store.put(item);
+      const req = store.put(scopedItem);
       req.onsuccess = () => {
-        this.broadcastChange(storeName, 'put', item.id);
-        resolve(item);
+        this.broadcastChange(storeName, 'put', scopedItem.id);
+        resolve(scopedItem);
       };
       req.onerror = () => reject(req.error);
     });
@@ -115,7 +293,7 @@ class StorageEngine {
       const tx = db.transaction(storeName, 'readwrite');
       const store = tx.objectStore(storeName);
       for (const item of items) {
-        store.put(item);
+        store.put(this.withActiveProfile(storeName, item));
       }
       tx.oncomplete = () => {
         this.broadcastChange(storeName, 'bulkPut');
@@ -180,6 +358,32 @@ class StorageEngine {
     });
   }
 
+  public async atomicPutMany(
+    operations: Array<{ storeName: string; item: { id: string; [key: string]: any } }>
+  ): Promise<void> {
+    if (!operations.length) return;
+    const db = await this.open();
+    const storeNames = [...new Set(operations.map(op => op.storeName))];
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeNames, 'readwrite');
+      try {
+        for (const op of operations) {
+          tx.objectStore(op.storeName).put(this.withActiveProfile(op.storeName, op.item));
+        }
+      } catch (error) {
+        try { tx.abort(); } catch {}
+        reject(error);
+        return;
+      }
+      tx.oncomplete = () => {
+        for (const storeName of storeNames) this.broadcastChange(storeName, 'atomicPutMany');
+        resolve();
+      };
+      tx.onerror = () => reject(tx.error || new Error('Atomic database transaction failed.'));
+      tx.onabort = () => reject(tx.error || new Error('Atomic database transaction aborted.'));
+    });
+  }
+
   public async getStorageEstimate() {
     try {
       if (navigator.storage?.estimate) {
@@ -198,16 +402,188 @@ class StorageEngine {
     return { usage: 0, quota: 0, percent: 0, level: 'healthy' };
   }
 
+  public async ensureProfileOwnership(profileId: string): Promise<void> {
+    if (!profileId) return;
+    const db = await this.open();
+    const rowsByStore: Record<string, any[]> = {};
+    let changed = false;
+    for (const storeName of ENTITY_STORES) {
+      const rows = await this.getAllRaw<any>(storeName);
+      rowsByStore[storeName] = rows;
+      if (rows.some(row => !row.profileId)) changed = true;
+    }
+    if (!changed) return;
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(ENTITY_STORES, 'readwrite');
+      try {
+        for (const storeName of ENTITY_STORES) {
+          for (const row of rowsByStore[storeName]) {
+            if (!row.profileId) tx.objectStore(storeName).put({ ...row, profileId });
+          }
+        }
+      } catch (error) {
+        try { tx.abort(); } catch {}
+        reject(error);
+        return;
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error('Profile ownership migration failed.'));
+      tx.onabort = () => reject(tx.error || new Error('Profile ownership migration aborted.'));
+    });
+  }
+
+  public async deleteProfileAndSettings(profileId: string, settings: AppState): Promise<void> {
+    if (!profileId) return;
+    const db = await this.open();
+    const rowsByStore: Record<string, any[]> = {};
+    for (const storeName of ENTITY_STORES) {
+      const rows = await this.getAllRaw<any>(storeName);
+      rowsByStore[storeName] = rows.filter(row => row.profileId === profileId);
+    }
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([...ENTITY_STORES, 'appSettings'], 'readwrite');
+      try {
+        for (const storeName of ENTITY_STORES) {
+          for (const row of rowsByStore[storeName]) tx.objectStore(storeName).delete(row.id);
+        }
+        tx.objectStore('appSettings').put(settings);
+      } catch (error) {
+        try { tx.abort(); } catch {}
+        reject(error);
+        return;
+      }
+      tx.oncomplete = () => {
+        this.broadcastChange('all', 'profileDelete', profileId);
+        resolve();
+      };
+      tx.onerror = () => reject(tx.error || new Error('Profile deletion failed.'));
+      tx.onabort = () => reject(tx.error || new Error('Profile deletion aborted.'));
+    });
+  }
+
+  public async deleteProfileData(profileId: string): Promise<void> {
+    if (!profileId) return;
+    const db = await this.open();
+    const rowsByStore: Record<string, any[]> = {};
+    for (const storeName of ENTITY_STORES) {
+      const rows = await this.getAllRaw<any>(storeName);
+      rowsByStore[storeName] = rows.filter(row => row.profileId === profileId);
+    }
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(ENTITY_STORES, 'readwrite');
+      try {
+        for (const storeName of ENTITY_STORES) {
+          for (const row of rowsByStore[storeName]) tx.objectStore(storeName).delete(row.id);
+        }
+      } catch (error) {
+        try { tx.abort(); } catch {}
+        reject(error);
+        return;
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error('Profile data deletion failed.'));
+      tx.onabort = () => reject(tx.error || new Error('Profile data deletion aborted.'));
+    });
+  }
+
+  public async deleteReceiptWithLink(receiptId: string): Promise<void> {
+    const receipts = await this.getAllRaw<any>('receipts');
+    const receipt = receipts.find(r => r.id === receiptId && (!this.activeProfileId || r.profileId === this.activeProfileId));
+    if (!receipt) return;
+    const finance = await this.getAllRaw<any>('finance');
+    const linkedTx = receipt.linkedTransactionId
+      ? finance.find(t => t.id === receipt.linkedTransactionId && (!this.activeProfileId || t.profileId === this.activeProfileId))
+      : undefined;
+    const db = await this.open();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(['receipts', 'finance'], 'readwrite');
+      try {
+        if (linkedTx && linkedTx.linkedReceiptId === receiptId) {
+          tx.objectStore('finance').put(this.withActiveProfile('finance', { ...linkedTx, linkedReceiptId: null, updatedAt: Date.now() }));
+        }
+        tx.objectStore('receipts').delete(receiptId);
+      } catch (error) {
+        try { tx.abort(); } catch {}
+        reject(error);
+        return;
+      }
+      tx.oncomplete = () => {
+        this.broadcastChange('finance', 'unlinkReceipt', linkedTx?.id);
+        this.broadcastChange('receipts', 'delete', receiptId);
+        resolve();
+      };
+      tx.onerror = () => reject(tx.error || new Error('Receipt delete failed.'));
+      tx.onabort = () => reject(tx.error || new Error('Receipt delete aborted.'));
+    });
+  }
+
+  public async deleteFinanceTransactionWithLink(transactionId: string): Promise<void> {
+    const txRows = await this.getAllRaw<any>('finance');
+    const transaction = txRows.find(t => t.id === transactionId && (!this.activeProfileId || t.profileId === this.activeProfileId));
+    if (!transaction) return;
+    const receipts = await this.getAllRaw<any>('receipts');
+    const linkedReceipt = transaction.linkedReceiptId
+      ? receipts.find(r => r.id === transaction.linkedReceiptId && (!this.activeProfileId || r.profileId === this.activeProfileId))
+      : undefined;
+    const db = await this.open();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(['finance', 'receipts'], 'readwrite');
+      try {
+        if (linkedReceipt && linkedReceipt.linkedTransactionId === transactionId) {
+          tx.objectStore('receipts').put(this.withActiveProfile('receipts', { ...linkedReceipt, linkedTransactionId: null, updatedAt: Date.now() }));
+        }
+        tx.objectStore('finance').delete(transactionId);
+      } catch (error) {
+        try { tx.abort(); } catch {}
+        reject(error);
+        return;
+      }
+      tx.oncomplete = () => {
+        this.broadcastChange('receipts', 'unlinkTransaction', linkedReceipt?.id);
+        this.broadcastChange('finance', 'delete', transactionId);
+        resolve();
+      };
+      tx.onerror = () => reject(tx.error || new Error('Finance transaction delete failed.'));
+      tx.onabort = () => reject(tx.error || new Error('Finance transaction delete aborted.'));
+    });
+  }
+
   // Audit database integrity
   public async auditIntegrity(): Promise<{ checked: number; issues: number; repaired: number }> {
     let checked = 0;
+    let issues = 0;
+    let repaired = 0;
     try {
-      for (const storeName of ENTITY_STORES) {
-        const rows = await this.getAll(storeName);
-        checked += rows.length;
+      const receipts = await this.getAll('receipts') as any[];
+      const finance = await this.getAll('finance') as any[];
+      const txById = new Map(finance.map(t => [t.id, t]));
+      const receiptById = new Map(receipts.map(r => [r.id, r]));
+      const ops: Array<{ storeName: string; item: any }> = [];
+      for (const receipt of receipts) {
+        checked++;
+        if (receipt.linkedTransactionId) {
+          const tx = txById.get(receipt.linkedTransactionId);
+          if (!tx || tx.linkedReceiptId !== receipt.id) {
+            issues++;
+            ops.push({ storeName: 'receipts', item: { ...receipt, linkedTransactionId: null, updatedAt: Date.now() } });
+            repaired++;
+          }
+        }
       }
+      for (const tx of finance) {
+        checked++;
+        if (tx.linkedReceiptId) {
+          const receipt = receiptById.get(tx.linkedReceiptId);
+          if (!receipt || receipt.linkedTransactionId !== tx.id) {
+            issues++;
+            ops.push({ storeName: 'finance', item: { ...tx, linkedReceiptId: null, updatedAt: Date.now() } });
+            repaired++;
+          }
+        }
+      }
+      if (ops.length) await this.atomicPutMany(ops);
     } catch {}
-    return { checked, issues: 0, repaired: 0 };
+    return { checked, issues, repaired };
   }
 
   private broadcastChange(store: string, action: string, id?: string) {
@@ -228,7 +604,7 @@ class StorageEngine {
     const allData: Record<string, any> = {};
 
     for (const storeName of ENTITY_STORES) {
-      allData[storeName] = await this.getAll(storeName);
+      allData[storeName] = await this.getAllRaw(storeName);
     }
     for (const storeName of SINGLETON_STORES) {
       allData[storeName] = await this.getSingleton(storeName);
@@ -354,21 +730,19 @@ export async function ensureDefaultProfiles(): Promise<AppState> {
     return settings;
   }
 
-  // If profiles has fewer than 3, upgrade them to include standard profiles
-  if (!settings.profiles || settings.profiles.length < 3) {
-    const existingMap = new Map((settings.profiles || []).map(p => [p.id, p]));
-    const mergedProfiles = [...(settings.profiles || [])];
+  // Existing profiles are authoritative. Never recreate profiles that a user deleted.
+  // Migrate any legacy Google/Email identity markers to local-only profiles.
+  settings.profiles = (settings.profiles || []).map(p => ({ ...p, authType: 'local' as const }));
+  settings.currentUser = settings.currentUser ? { ...settings.currentUser, provider: 'local' as const } : undefined;
+  if (settings.profiles.length) {
+    settings.profiles = settings.profiles.map(p => ({ ...p, isCurrent: p.id === settings.profileId }));
+  }
+  await storage.setSingleton('appSettings', settings);
 
-    for (const std of standardProfiles) {
-      if (!existingMap.has(std.id) && !mergedProfiles.some(p => p.name === std.name)) {
-        mergedProfiles.push(std);
-      }
-    }
-
-    settings.profiles = mergedProfiles;
-    if (!settings.profileId) {
-      settings.profileId = mergedProfiles[0].id;
-    }
+  if (!settings.profiles || settings.profiles.length === 0) {
+    settings.profiles = standardProfiles;
+    settings.profileId = standardProfiles[0].id;
+    settings.profiles = settings.profiles.map(p => ({ ...p, isCurrent: p.id === settings.profileId }));
     await storage.setSingleton('appSettings', settings);
   }
 
@@ -377,6 +751,8 @@ export async function ensureDefaultProfiles(): Promise<AppState> {
 
 // Default seed data for a fresh workspace
 export async function seedInitialDataIfEmpty(): Promise<boolean> {
+  const existingSettings = await storage.getSingleton<AppState>('appSettings');
+  if (existingSettings) return false;
   const existingTasks = await storage.getAll<Task>('tasks');
   if (existingTasks.length > 0) return false;
 

@@ -2,10 +2,11 @@ import React, { useState, useRef } from 'react';
 import {
   Folder, FileCheck, Shield, Trash2, Receipt, Award, FileText,
   Upload, Edit3, Download, Paperclip, Search,
-  X
+  X, Landmark, ExternalLink, Plus, Eye
 } from 'lucide-react';
 import {
-  ThingItem, DocumentItem, WarrantyItem, ReceiptItem, CertificateItem, ImportantRecordItem
+  ThingItem, DocumentItem, WarrantyItem, ReceiptItem, CertificateItem, ImportantRecordItem,
+  FinanceAccount, FinanceTransaction, NavModule
 } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -17,8 +18,11 @@ interface ThingsViewProps {
   receipts?: ReceiptItem[];
   certificates?: CertificateItem[];
   importantRecords?: ImportantRecordItem[];
+  financeAccounts?: FinanceAccount[];
+  financeTransactions?: FinanceTransaction[];
   onRefresh: () => void;
   onSuccess: (msg: string) => void;
+  onNavigate?: (module: NavModule) => void;
 }
 
 type SubMenuTab = 'things' | 'documents' | 'warranties' | 'receipts' | 'certificates' | 'records';
@@ -42,8 +46,11 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
   receipts = [],
   certificates = [],
   importantRecords = [],
+  financeAccounts = [],
+  financeTransactions = [],
   onRefresh,
-  onSuccess
+  onSuccess,
+  onNavigate
 }) => {
   const [activeTab, setActiveTab] = useState<SubMenuTab>('things');
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,6 +89,13 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
   const [recDate, setRecDate] = useState(today);
   const [recNote, setRecNote] = useState('');
 
+  // Link Receipt with Finance & Ledger Transaction
+  const [recLinkToFinance, setRecLinkToFinance] = useState(false);
+  const [recFinanceMode, setRecFinanceMode] = useState<'create_new' | 'link_existing'>('link_existing');
+  const [recFinanceAccountId, setRecFinanceAccountId] = useState(financeAccounts[0]?.id || '');
+  const [recFinanceCategory, setRecFinanceCategory] = useState('Shopping & Assets');
+  const [recSelectedTxId, setRecSelectedTxId] = useState('');
+
   const [certTitle, setCertTitle] = useState('');
   const [certIssuer, setCertIssuer] = useState('');
   const [certExpiry, setCertExpiry] = useState('');
@@ -98,6 +112,10 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
   const [editDate, setEditDate] = useState('');
   const [editNote, setEditNote] = useState('');
   const [editAttachedFile, setEditAttachedFile] = useState<{ name: string; size: string; data: string; type: string } | null>(null);
+  const [editRemoveAttachment, setEditRemoveAttachment] = useState(false);
+
+  const MAX_RECEIPT_FILE_BYTES = 10 * 1024 * 1024;
+  const ALLOWED_RECEIPT_TYPES = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/webp']);
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -232,6 +250,16 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
+      if (activeTab === 'receipts') {
+        if (file.size > MAX_RECEIPT_FILE_BYTES) {
+          onSuccess('Receipt attachment must be 10 MB or smaller.');
+          return;
+        }
+        if (!ALLOWED_RECEIPT_TYPES.has(file.type)) {
+          onSuccess('Receipt attachment must be PDF, PNG, JPG/JPEG, or WebP.');
+          return;
+        }
+      }
       const dataUrl = await readFileAsDataUrl(file);
       setAttachedFile({
         name: file.name,
@@ -249,6 +277,9 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
       if (activeTab === 'records' && !recrdTitle) setRecrdTitle(cleanName);
     } catch (err) {
       console.error('File read error', err);
+      onSuccess('Unable to read the selected file.');
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -332,25 +363,92 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
     e.preventDefault();
     if (!recTitle.trim()) return;
 
+    const receiptId = generateUUID();
+    let linkedTxId: string | undefined;
+    const now = Date.now();
+    const amt = Number(recAmount);
+    if (!Number.isFinite(amt) || amt < 0) {
+      onSuccess('Receipt amount cannot be negative.');
+      return;
+    }
+    const operations: Array<{ storeName: string; item: any }> = [];
+
+    if (recLinkToFinance) {
+      if (recFinanceMode === 'link_existing' && recSelectedTxId) {
+        const existingTx = financeTransactions.find(t => t.id === recSelectedTxId);
+        if (!existingTx) {
+          onSuccess('Selected Finance transaction could not be found.');
+          return;
+        }
+        linkedTxId = existingTx.id;
+        // Linking is relationship-only. Do not copy receipt amount/date/etc. into Finance.
+        // A manually selected new attachment is an explicit user action, so that file may
+        // be applied to both linked records; otherwise preserve the Finance attachment.
+        if (attachedFile?.data) {
+          operations.push({
+            storeName: 'finance',
+            item: {
+              ...existingTx,
+              linkedReceiptId: receiptId,
+              fileName: attachedFile.name,
+              fileData: attachedFile.data,
+              fileSize: attachedFile.size,
+              fileType: attachedFile.type,
+              updatedAt: now
+            }
+          });
+        } else {
+          operations.push({
+            storeName: 'finance',
+            item: { ...existingTx, linkedReceiptId: receiptId, updatedAt: now }
+          });
+        }
+        // If that transaction already points to another receipt, clear only the old link.
+        if (existingTx.linkedReceiptId && existingTx.linkedReceiptId !== receiptId) {
+          const oldReceipt = receipts.find(r => r.id === existingTx.linkedReceiptId);
+          if (oldReceipt?.linkedTransactionId === existingTx.id) {
+            operations.push({
+              storeName: 'receipts',
+              item: { ...oldReceipt, linkedTransactionId: null, updatedAt: now }
+            });
+          }
+        }
+      } else {
+        onSuccess('To keep Finance and Receipts independent, select an existing Finance transaction to link.');
+        return;
+      }
+    }
+
     const r: ReceiptItem = {
-      id: generateUUID(),
+      id: receiptId,
       title: recTitle.trim(),
-      amount: Number(recAmount) || 0,
+      amount: amt,
       date: recDate || today,
       note: recNote.trim() || undefined,
       fileName: attachedFile?.name,
       fileSize: attachedFile?.size,
       fileType: attachedFile?.type,
       fileData: attachedFile?.data,
-      createdAt: Date.now()
+      linkedTransactionId: linkedTxId,
+      createdAt: now
     };
-    await storage.put('receipts', r);
-    onSuccess('✓ Purchase receipt archived');
-    setRecTitle('');
-    setRecAmount('');
-    setRecNote('');
-    setAttachedFile(null);
-    onRefresh();
+    operations.push({ storeName: 'receipts', item: r });
+
+    try {
+      await storage.atomicPutMany(operations);
+      onSuccess(linkedTxId ? '✓ Purchase receipt archived & linked to Finance Ledger!' : '✓ Purchase receipt archived');
+      setRecTitle('');
+      setRecAmount('');
+      setRecNote('');
+      setAttachedFile(null);
+      setRecLinkToFinance(false);
+      setRecFinanceMode('link_existing');
+      setRecFinanceCategory('Shopping & Assets');
+      setRecSelectedTxId('');
+      onRefresh();
+    } catch (err: any) {
+      onSuccess(`Receipt could not be committed: ${err?.message || 'database error'}`);
+    }
   };
 
   const handleAddCertificate = async (e: React.FormEvent) => {
@@ -410,6 +508,7 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
     setEditValue(item.value !== undefined ? String(item.value) : item.amount !== undefined ? String(item.amount) : item.reference || '');
     setEditDate(item.date || item.expiry || '');
     setEditNote(item.note || '');
+    setEditRemoveAttachment(false);
     if (item.fileName && item.fileData) {
       setEditAttachedFile({
         name: item.fileName,
@@ -433,10 +532,10 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
     let updated: any = {
       ...item,
       updatedAt: now,
-      fileName: editAttachedFile?.name || item.fileName,
-      fileSize: editAttachedFile?.size || item.fileSize,
-      fileType: editAttachedFile?.type || item.fileType,
-      fileData: editAttachedFile?.data || item.fileData
+      fileName: editRemoveAttachment ? undefined : (editAttachedFile?.name || item.fileName),
+      fileSize: editRemoveAttachment ? undefined : (editAttachedFile?.size || item.fileSize),
+      fileType: editRemoveAttachment ? undefined : (editAttachedFile?.type || item.fileType),
+      fileData: editRemoveAttachment ? undefined : (editAttachedFile?.data || item.fileData)
     };
 
     if (store === 'things') {
@@ -464,10 +563,18 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
         note: editNote.trim() || undefined
       };
     } else if (store === 'receipts') {
+      const nextAmount = Number(editValue);
+      if (!Number.isFinite(nextAmount) || nextAmount < 0) {
+        onSuccess('Receipt amount cannot be negative.');
+        return;
+      }
+      // A Finance link is relationship-only. Editing a Receipt must not mutate Finance.
+      // Attachment changes here remain local to the Receipt; only the explicit linking
+      // action can copy a newly selected attachment to both records.
       updated = {
         ...updated,
         title: editTitle.trim(),
-        amount: Number(editValue) || 0,
+        amount: nextAmount,
         date: editDate || today,
         note: editNote.trim() || undefined
       };
@@ -498,7 +605,11 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await storage.delete(deleteTarget.store, deleteTarget.id);
+      if (deleteTarget.store === 'receipts') {
+        await storage.deleteReceiptWithLink(deleteTarget.id);
+      } else {
+        await storage.delete(deleteTarget.store, deleteTarget.id);
+      }
       onSuccess(`✓ ${deleteTarget.typeLabel} deleted`);
       setDeleteTarget(null);
       onRefresh();
@@ -1119,149 +1230,334 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Add Receipt Form */}
           <div className="lg:col-span-5 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 pb-3 dark:border-slate-800 flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-indigo-500" />
-              <span>Add Purchase Receipt</span>
-            </h2>
-            <form onSubmit={handleAddReceipt} className="mt-4 space-y-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Item / Store Title</label>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+                  <Receipt className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">Add Purchase Receipt</h2>
+                  <p className="text-[11px] text-slate-400">Vault archiving with optional ledger expense sync</p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleAddReceipt} className="mt-4 space-y-4">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Item / Store / Asset Title <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
                   required
                   value={recTitle}
                   onChange={e => setRecTitle(e.target.value)}
-                  placeholder="e.g. Ergonomic Office Desk"
-                  className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  placeholder="e.g. Ergonomic Office Desk, MacBook Pro"
+                  className="h-10 sm:h-10.5 w-full rounded-xl border border-slate-200 px-3 text-xs sm:text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none transition-all"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Amount (₹)</label>
-                  <input
-                    type="number"
-                    value={recAmount}
-                    onChange={e => setRecAmount(e.target.value)}
-                    placeholder="24000"
-                    className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    Purchase Amount (₹)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-xs font-semibold text-slate-400">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={recAmount}
+                      onChange={e => setRecAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="h-10 sm:h-10.5 w-full rounded-xl border border-slate-200 pl-7 pr-3 font-mono text-xs sm:text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none transition-all"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Date</label>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    Purchase Date
+                  </label>
                   <input
                     type="date"
                     value={recDate}
                     onChange={e => setRecDate(e.target.value)}
-                    className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-2.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    className="h-10 sm:h-10.5 w-full rounded-xl border border-slate-200 px-3 font-mono text-xs sm:text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none transition-all"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Attach Receipt Invoice Scan</label>
-                <div className="mt-1">
-                  <input
-                    type="file"
-                    className="hidden"
-                    id="rec-form-file"
-                    onChange={handleAttachFormFile}
-                  />
-                  <label
-                    htmlFor="rec-form-file"
-                    className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer"
-                  >
-                    <Paperclip className="h-3.5 w-3.5" />
-                    <span className="truncate">{attachedFile ? attachedFile.name : 'Choose File'}</span>
-                  </label>
-                </div>
+              {/* Bill / Invoice Scan Attachment Zone */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Receipt Invoice Scan / File
+                </label>
+
+                {!attachedFile ? (
+                  <div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      id="rec-form-file"
+                      onChange={handleAttachFormFile}
+                    />
+                    <label
+                      htmlFor="rec-form-file"
+                      className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 p-3.5 sm:p-4 text-center hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-all cursor-pointer group"
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 shadow-2xs group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <Paperclip className="h-4 w-4" />
+                      </div>
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        Choose Receipt / Invoice Scan
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        Works with single file upload for Vault & Finance (PDF, PNG, JPG)
+                      </span>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/50 dark:bg-indigo-950/40 p-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-2xs">
+                        <FileText className="h-4.5 w-4.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-xs">
+                          {attachedFile.name}
+                        </p>
+                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                          {attachedFile.size} · Ready to save
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewFile({ name: attachedFile.name, data: attachedFile.data, type: attachedFile.type })}
+                        className="flex h-8 items-center gap-1 rounded-lg bg-white dark:bg-slate-800 px-2.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/80 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                        title="Preview attached file"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAttachedFile(null)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                        title="Remove file"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Notes / Payment Method</label>
-                <textarea
-                  rows={2}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Notes / Payment Method (Optional)
+                </label>
+                <input
+                  type="text"
                   value={recNote}
                   onChange={e => setRecNote(e.target.value)}
-                  placeholder="Order ID, credit card, tax notes..."
-                  className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  placeholder="Order ID, warranty link, credit card, retailer..."
+                  className="h-10 sm:h-10.5 w-full rounded-xl border border-slate-200 px-3 text-xs sm:text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none transition-all"
                 />
               </div>
 
-              <button type="submit" className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 cursor-pointer">
-                + Save Receipt
+              {/* Sync with Finance & Ledger (Custom Switch Panel) */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3.5 space-y-3 transition-colors">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 shrink-0">
+                      <Landmark className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                        Record in Finance & Ledger as Transaction
+                      </span>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Automatically registers an expense in your chosen ledger account
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Accessible Toggle Switch */}
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={recLinkToFinance}
+                    onClick={() => { setRecLinkToFinance(!recLinkToFinance); if (!recLinkToFinance) setRecFinanceMode('link_existing'); }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      recLinkToFinance ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                        recLinkToFinance ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Optional link to an existing Finance transaction; Receipt never creates Finance data automatically. */}
+                {recLinkToFinance && (
+                  <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80 space-y-3 animate-in fade-in duration-150">
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        Select Existing Transaction from Ledger
+                      </label>
+                      <select
+                        value={recSelectedTxId}
+                        onChange={e => setRecSelectedTxId(e.target.value)}
+                        className="h-9.5 w-full rounded-xl border border-slate-200 bg-white px-2.5 text-xs sm:text-sm text-slate-900 focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none cursor-pointer"
+                      >
+                        <option value="">-- Choose Transaction --</option>
+                        {financeTransactions?.map(tx => (
+                          <option key={tx.id} value={tx.id}>
+                            {tx.category} - ₹{tx.amount} ({tx.date}) {tx.fileName ? '📎' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                className="flex h-11 sm:h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 active:scale-[0.99] transition-all cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Save Receipt in Vault</span>
               </button>
             </form>
           </div>
 
           {/* Receipts Archive List */}
-          <div className="lg:col-span-7 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3 dark:border-slate-800">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                Receipts Archive ({receipts.length})
-              </h2>
-              <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
-                Total: ₹{totalReceiptsValue.toLocaleString('en-IN')}
+          <div className="lg:col-span-7 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 flex flex-col">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800 gap-2">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Receipts Archive ({receipts.length})
+                </h2>
+                <p className="text-[11px] text-slate-400">Total cataloged purchase proofs and invoice records</p>
+              </div>
+              <span className="font-mono text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
+                Total Value: ₹{totalReceiptsValue.toLocaleString('en-IN')}
               </span>
             </div>
 
-            <div className="mt-4 space-y-2.5 max-h-[500px] overflow-y-auto">
+            <div className="mt-4 space-y-3 max-h-[600px] overflow-y-auto">
               {receipts
                 .filter(r => r.title.toLowerCase().includes(searchQuery.toLowerCase()))
                 .length === 0 ? (
-                <div className="py-12 text-center text-xs text-slate-400">No receipts archived.</div>
+                <div className="py-16 text-center text-xs text-slate-400">
+                  No receipts found matching your search.
+                </div>
               ) : (
                 receipts
                   .filter(r => r.title.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .map(r => (
-                    <div key={r.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-bold text-slate-900 dark:text-white truncate">{r.title}</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">Date: {r.date || 'N/A'}</div>
-                          {r.note && <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{r.note}</div>}
+                  .map(r => {
+                    const linkedTx = r.linkedTransactionId ? financeTransactions.find(t => t.id === r.linkedTransactionId) : undefined;
+                    const fileName = r.fileName;
+                    const fileData = r.fileData;
+                    const fileSize = r.fileSize;
+                    const fileType = r.fileType;
 
-                          {/* Attached Receipt File */}
-                          {r.fileName && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <span
-                                onClick={() => r.fileData && setPreviewFile({ name: r.fileName!, data: r.fileData, type: r.fileType })}
-                                className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600 hover:underline dark:bg-indigo-950/50 dark:text-indigo-400 cursor-pointer"
+                    return (
+                      <div
+                        key={r.id}
+                        className="rounded-2xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-900/40 p-4 hover:border-slate-200 dark:hover:border-slate-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center justify-between sm:justify-start gap-2">
+                            <span className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                              {r.title}
+                            </span>
+                            {/* Mobile Price Display */}
+                            <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums sm:hidden">
+                              ₹{Number(r.amount).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-1.5">
+                            <span>{r.date || 'Undated'}</span>
+                            {r.note && (
+                              <>
+                                <span>·</span>
+                                <span className="truncate max-w-[220px]">{r.note}</span>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Action Badges / Links */}
+                          <div className="pt-1 flex flex-wrap items-center gap-2">
+                            {fileName && fileData && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewFile({ name: fileName, data: fileData, type: fileType })}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 px-2.5 py-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
+                                title="Click to view attached invoice"
                               >
                                 <Paperclip className="h-3 w-3" />
-                                <span className="truncate max-w-[160px]">{r.fileName}</span>
-                                {r.fileSize && <span>({r.fileSize})</span>}
-                              </span>
-                            </div>
-                          )}
+                                <span className="truncate max-w-[140px]">{fileName}</span>
+                                {fileSize && <span className="opacity-75 font-normal">({fileSize})</span>}
+                                <Eye className="h-2.5 w-2.5 ml-0.5" />
+                              </button>
+                            )}
+
+                            {(r.linkedTransactionId || linkedTx) && (
+                              <button
+                                type="button"
+                                onClick={() => onNavigate?.('finance')}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer"
+                                title="Open in Finance Ledger"
+                              >
+                                <Landmark className="h-3 w-3" />
+                                <span>Ledger: {linkedTx ? `${linkedTx.category} (₹${linkedTx.amount})` : 'Linked'}</span>
+                                <ExternalLink className="h-2.5 w-2.5 ml-0.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="font-mono font-bold text-slate-900 dark:text-white tabular-nums mr-1">
+                        {/* Desktop Price & Edit/Delete Actions */}
+                        <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
+                          <span className="hidden sm:inline font-mono font-bold text-sm text-slate-900 dark:text-white tabular-nums">
                             ₹{Number(r.amount).toLocaleString('en-IN')}
                           </span>
 
-                          {/* EDIT KEY & DELETE KEY */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit('receipts', r)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors cursor-pointer"
-                            title="Edit Receipt"
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget({ store: 'receipts', id: r.id, name: r.title, typeLabel: 'Receipt' })}
-                            className="p-1.5 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
-                            title="Delete Receipt"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit('receipts', r)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+                              title="Edit Receipt"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget({ store: 'receipts', id: r.id, name: r.title, typeLabel: 'Receipt' })}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                              title="Delete Receipt"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
               )}
             </div>
           </div>
@@ -1653,6 +1949,10 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
                     onChange={async (e) => {
                       const f = e.target.files?.[0];
                       if (!f) return;
+                      if (editTarget.store === 'receipts') {
+                        if (f.size > MAX_RECEIPT_FILE_BYTES) { onSuccess('Receipt attachment must be 10 MB or smaller.'); e.target.value = ''; return; }
+                        if (!ALLOWED_RECEIPT_TYPES.has(f.type)) { onSuccess('Receipt attachment must be PDF, PNG, JPG/JPEG, or WebP.'); e.target.value = ''; return; }
+                      }
                       const d = await readFileAsDataUrl(f);
                       setEditAttachedFile({
                         name: f.name,
@@ -1660,6 +1960,8 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
                         data: d,
                         type: f.type
                       });
+                      setEditRemoveAttachment(false);
+                      e.target.value = '';
                     }}
                   />
                   <label
@@ -1674,7 +1976,7 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
                       <span className="truncate">{editAttachedFile.name}</span>
                       <button
                         type="button"
-                        onClick={() => setEditAttachedFile(null)}
+                        onClick={() => { setEditAttachedFile(null); setEditRemoveAttachment(true); }}
                         className="text-slate-400 hover:text-rose-500"
                       >
                         <X className="h-3 w-3" />

@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import {
   DollarSign, Plus, ArrowUpRight,
   ShieldCheck, Trash2, TrendingUp, Landmark,
-  Download
+  Download, Upload, Paperclip, Receipt, ExternalLink,
+  FileText, X, Eye
 } from 'lucide-react';
 import {
   FinanceAccount, FinanceTransaction, Loan, LoanPayment,
-  Investment, SavingsPlan, Asset, Liability, FinancialGoal
+  Investment, SavingsPlan, Asset, Liability, FinancialGoal,
+  ReceiptItem, NavModule
 } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -21,8 +23,10 @@ interface FinanceViewProps {
   assets?: Asset[];
   liabilities?: Liability[];
   financialGoals?: FinancialGoal[];
+  receipts?: ReceiptItem[];
   onRefresh: () => void;
   onSuccess: (msg: string) => void;
+  onNavigate?: (module: NavModule) => void;
 }
 
 export const FinanceView: React.FC<FinanceViewProps> = ({
@@ -35,8 +39,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   assets = [],
   liabilities = [],
   financialGoals = [],
+  receipts = [],
   onRefresh,
-  onSuccess
+  onSuccess,
+  onNavigate
 }) => {
   const today = new Date().toISOString().slice(0, 10);
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'accounts' | 'loans' | 'investments' | 'savings' | 'balanceSheet'>('overview');
@@ -49,6 +55,60 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   const [txToAccount, setTxToAccount] = useState(accounts[1]?.id || accounts[0]?.id || '');
   const [txNote, setTxNote] = useState('');
   const [txDate, setTxDate] = useState(today);
+
+  // Bill / Receipt Attachment & Things Vault Link state
+  const [txAttachedFile, setTxAttachedFile] = useState<{ name: string; size: string; data: string; type: string } | null>(null);
+  const [txLinkToReceipt, setTxLinkToReceipt] = useState(false);
+  const [txReceiptMode, setTxReceiptMode] = useState<'create_new' | 'link_existing'>('link_existing');
+  const [txReceiptTitle, setTxReceiptTitle] = useState('');
+  const [txSelectedReceiptId, setTxSelectedReceiptId] = useState('');
+  const [previewFile, setPreviewFile] = useState<{ name: string; data: string; type?: string } | null>(null);
+  const MAX_RECEIPT_FILE_BYTES = 10 * 1024 * 1024;
+  const ALLOWED_RECEIPT_TYPES = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/webp']);
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const readFileAsDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAttachTxFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      if (file.size > MAX_RECEIPT_FILE_BYTES) {
+        onSuccess('Receipt attachment must be 10 MB or smaller.');
+        return;
+      }
+      if (!ALLOWED_RECEIPT_TYPES.has(file.type)) {
+        onSuccess('Receipt attachment must be PDF, PNG, JPG/JPEG, or WebP.');
+        return;
+      }
+      const dataUrl = await readFileAsDataUrl(file);
+      setTxAttachedFile({
+        name: file.name,
+        size: formatFileSize(file.size),
+        data: dataUrl,
+        type: file.type
+      });
+      const cleanName = file.name.replace(/\.[^/.]+$/, '');
+      if (!txReceiptTitle) setTxReceiptTitle(cleanName);
+    } catch (err) {
+      console.error('File read error', err);
+      onSuccess('Unable to read the selected file.');
+    } finally {
+      e.target.value = '';
+    }
+  };
 
   // New Account Form
   const [acctName, setAcctName] = useState('');
@@ -160,63 +220,140 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
     e.preventDefault();
     const amt = Number(txAmount);
     if (!amt || amt <= 0) return;
-    const now = Date.now();
 
     const selectedAccount = txAccount || accounts[0]?.id;
     const selectedToAccount = txToAccount || accounts[1]?.id || accounts[0]?.id;
-
     if (txType === 'transfer') {
       if (!selectedAccount || !selectedToAccount || selectedAccount === selectedToAccount) {
-        alert('Please choose distinct source and destination accounts.');
+        onSuccess('Select two different accounts for a transfer.');
         return;
       }
+      if (!accounts.some(a => a.id === selectedAccount) || !accounts.some(a => a.id === selectedToAccount)) return;
+    } else if (selectedAccount && !accounts.some(a => a.id === selectedAccount)) {
+      return;
+    }
+
+    const now = Date.now();
+    const txId = generateUUID();
+    let createdOrLinkedReceiptId: string | null = null;
+    let finalFileName = txAttachedFile?.name;
+    let finalFileData = txAttachedFile?.data;
+    let finalFileSize = txAttachedFile?.size;
+    let finalFileType = txAttachedFile?.type;
+    const operations: Array<{ storeName: string; item: any }> = [];
+
+    if (txLinkToReceipt) {
+      if (txReceiptMode !== 'link_existing' || !txSelectedReceiptId) {
+        onSuccess('Select an existing Purchase Receipt to create an optional link.');
+        return;
+      }
+      const existingReceipt = receipts.find(r => r.id === txSelectedReceiptId);
+      if (!existingReceipt) {
+        onSuccess('Selected receipt could not be found.');
+        return;
+      }
+      createdOrLinkedReceiptId = existingReceipt.id;
+      // Linking is relationship-only. Do not copy Receipt amount/date into Finance.
+      // A manually selected new attachment is an explicit action and may be shared.
+      operations.push({
+        storeName: 'receipts',
+        item: txAttachedFile?.data
+          ? {
+              ...existingReceipt,
+              linkedTransactionId: txId,
+              fileName: txAttachedFile.name,
+              fileData: txAttachedFile.data,
+              fileSize: txAttachedFile.size,
+              fileType: txAttachedFile.type,
+              updatedAt: now
+            }
+          : { ...existingReceipt, linkedTransactionId: txId, updatedAt: now }
+      });
+      if (existingReceipt.linkedTransactionId && existingReceipt.linkedTransactionId !== txId) {
+        const oldTx = transactions.find(t => t.id === existingReceipt.linkedTransactionId);
+        if (oldTx?.linkedReceiptId === existingReceipt.id) {
+          operations.push({
+            storeName: 'finance',
+            item: { ...oldTx, linkedReceiptId: null, updatedAt: now }
+          });
+        }
+      }
+    }
+
+    let nextFromAccount: FinanceAccount | undefined;
+    let nextToAccount: FinanceAccount | undefined;
+    if (txType === 'transfer') {
       const fromAcct = accounts.find(a => a.id === selectedAccount);
       const toAcct = accounts.find(a => a.id === selectedToAccount);
       if (!fromAcct || !toAcct) return;
-
-      fromAcct.balance -= amt;
-      toAcct.balance += amt;
-      await storage.put('financeAccounts', fromAcct);
-      await storage.put('financeAccounts', toAcct);
-
-      const tx: FinanceTransaction = {
-        id: generateUUID(),
-        type: 'transfer',
-        amount: amt,
-        category: 'Account Transfer',
-        date: txDate,
-        note: txNote.trim() || undefined,
-        fromAccountId: selectedAccount,
-        toAccountId: selectedToAccount,
-        createdAt: now
-      };
-      await storage.put('finance', tx);
-      onSuccess(`₹${amt.toLocaleString('en-IN')} transferred from ${fromAcct.name} to ${toAcct.name}`);
+      nextFromAccount = { ...fromAcct, balance: fromAcct.balance - amt };
+      nextToAccount = { ...toAcct, balance: toAcct.balance + amt };
+      operations.push({ storeName: 'financeAccounts', item: nextFromAccount });
+      operations.push({ storeName: 'financeAccounts', item: nextToAccount });
     } else {
       const acct = accounts.find(a => a.id === selectedAccount);
       if (acct) {
-        if (txType === 'expense' || txType === 'investment') acct.balance -= amt;
-        if (txType === 'income' || txType === 'loan') acct.balance += amt;
-        await storage.put('financeAccounts', acct);
+        let nextBalance = acct.balance;
+        if (txType === 'expense' || txType === 'investment') nextBalance -= amt;
+        if (txType === 'income' || txType === 'loan') nextBalance += amt;
+        operations.push({ storeName: 'financeAccounts', item: { ...acct, balance: nextBalance } });
       }
-
-      const tx: FinanceTransaction = {
-        id: generateUUID(),
-        type: txType,
-        amount: amt,
-        category: txCategory.trim() || (txType === 'income' ? 'Income' : 'Expense'),
-        date: txDate,
-        note: txNote.trim() || undefined,
-        accountId: selectedAccount || null,
-        createdAt: now
-      };
-      await storage.put('finance', tx);
-      onSuccess('Transaction committed to ledger');
     }
 
-    setTxAmount('');
-    setTxNote('');
-    onRefresh();
+    const tx: FinanceTransaction = txType === 'transfer'
+      ? {
+          id: txId,
+          type: 'transfer',
+          amount: amt,
+          category: 'Account Transfer',
+          date: txDate,
+          note: txNote.trim() || undefined,
+          fromAccountId: selectedAccount,
+          toAccountId: selectedToAccount,
+          linkedReceiptId: createdOrLinkedReceiptId,
+          fileName: finalFileName,
+          fileData: finalFileData,
+          fileSize: finalFileSize,
+          fileType: finalFileType,
+          createdAt: now
+        }
+      : {
+          id: txId,
+          type: txType,
+          amount: amt,
+          category: txCategory.trim() || (txType === 'income' ? 'Income' : 'Expense'),
+          date: txDate,
+          note: txNote.trim() || undefined,
+          accountId: selectedAccount || null,
+          linkedReceiptId: createdOrLinkedReceiptId,
+          fileName: finalFileName,
+          fileData: finalFileData,
+          fileSize: finalFileSize,
+          fileType: finalFileType,
+          createdAt: now
+        };
+    operations.push({ storeName: 'finance', item: tx });
+
+    try {
+      await storage.atomicPutMany(operations);
+      if (txType === 'transfer' && nextFromAccount && nextToAccount) {
+        onSuccess(`₹${amt.toLocaleString('en-IN')} transferred from ${nextFromAccount.name} to ${nextToAccount.name}`);
+      } else if (createdOrLinkedReceiptId) {
+        onSuccess('✓ Transaction recorded & linked with Things Purchase Receipt Vault!');
+      } else {
+        onSuccess('Transaction committed to ledger');
+      }
+      setTxAmount('');
+      setTxNote('');
+      setTxAttachedFile(null);
+      setTxLinkToReceipt(false);
+      setTxReceiptMode('link_existing');
+      setTxReceiptTitle('');
+      setTxSelectedReceiptId('');
+      onRefresh();
+    } catch (err: any) {
+      onSuccess(`Transaction could not be committed: ${err?.message || 'database error'}`);
+    }
   };
 
   const handleCreateAccount = async (e: React.FormEvent) => {
@@ -405,7 +542,11 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
-    await storage.delete(deleteTarget.store, deleteTarget.id);
+    if (deleteTarget.store === 'finance') {
+      await storage.deleteFinanceTransactionWithLink(deleteTarget.id);
+    } else {
+      await storage.delete(deleteTarget.store, deleteTarget.id);
+    }
     onSuccess(`✓ Removed "${deleteTarget.name}"`);
     setDeleteTarget(null);
     onRefresh();
@@ -458,6 +599,18 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Sovereign financial system: liquid accounts, cash flow, amortization loans, liabilities, investments, and net worth balance sheet.
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 transition-all cursor-pointer"
+            title="Export Ledger as CSV"
+          >
+            <Download className="h-4 w-4 text-slate-500" />
+            <span>Export CSV</span>
+          </button>
         </div>
       </div>
 
@@ -542,18 +695,28 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Record Transaction Form (5 cols) */}
           <div className="lg:col-span-5 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
-              <Plus className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Record Transaction</h2>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+                  <Plus className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">Record Transaction</h2>
+                  <p className="text-[11px] text-slate-400">Direct ledger entry with optional vault receipt sync</p>
+                </div>
+              </div>
             </div>
 
-            <form onSubmit={handleCreateTransaction} className="mt-4 space-y-3">
-              <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-0.5 text-xs dark:border-slate-700 dark:bg-slate-800">
+            <form onSubmit={handleCreateTransaction} className="mt-4 space-y-4">
+              {/* Segmented Transaction Type Selector */}
+              <div className="grid grid-cols-3 gap-1 rounded-2xl bg-slate-100 dark:bg-slate-800/80 p-1 text-xs">
                 <button
                   type="button"
                   onClick={() => setTxType('expense')}
-                  className={`flex-1 rounded-lg py-1.5 font-medium transition-colors cursor-pointer ${
-                    txType === 'expense' ? 'bg-white text-rose-600 shadow-sm dark:bg-slate-700 dark:text-rose-400' : 'text-slate-500'
+                  className={`flex h-9 sm:h-10 items-center justify-center rounded-xl font-semibold transition-all cursor-pointer ${
+                    txType === 'expense'
+                      ? 'bg-white text-rose-600 shadow-xs dark:bg-slate-700 dark:text-rose-400'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                   }`}
                 >
                   Expense
@@ -561,8 +724,10 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setTxType('income')}
-                  className={`flex-1 rounded-lg py-1.5 font-medium transition-colors cursor-pointer ${
-                    txType === 'income' ? 'bg-white text-emerald-600 shadow-sm dark:bg-slate-700 dark:text-emerald-400' : 'text-slate-500'
+                  className={`flex h-9 sm:h-10 items-center justify-center rounded-xl font-semibold transition-all cursor-pointer ${
+                    txType === 'income'
+                      ? 'bg-white text-emerald-600 shadow-xs dark:bg-slate-700 dark:text-emerald-400'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                   }`}
                 >
                   Income
@@ -570,88 +735,113 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setTxType('transfer')}
-                  className={`flex-1 rounded-lg py-1.5 font-medium transition-colors cursor-pointer ${
-                    txType === 'transfer' ? 'bg-white text-indigo-600 shadow-sm dark:bg-slate-700 dark:text-indigo-400' : 'text-slate-500'
+                  className={`flex h-9 sm:h-10 items-center justify-center rounded-xl font-semibold transition-all cursor-pointer ${
+                    txType === 'transfer'
+                      ? 'bg-white text-indigo-600 shadow-xs dark:bg-slate-700 dark:text-indigo-400'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                   }`}
                 >
                   Transfer
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Amount (₹)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={txAmount}
-                    onChange={e => setTxAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-3 font-mono text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  />
+              {/* Amount & Date Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    Amount (₹) <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-xs font-semibold text-slate-400">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={txAmount}
+                      onChange={e => setTxAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="h-10 sm:h-10.5 w-full rounded-xl border border-slate-200 pl-7 pr-3 font-mono text-xs sm:text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none transition-all"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Date</label>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    Transaction Date <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="date"
+                    required
                     value={txDate}
                     onChange={e => setTxDate(e.target.value)}
-                    className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-2.5 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    className="h-10 sm:h-10.5 w-full rounded-xl border border-slate-200 px-3 font-mono text-xs sm:text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none transition-all"
                   />
                 </div>
               </div>
 
+              {/* Category & Account */}
               {txType !== 'transfer' ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Category</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Category <span className="text-rose-500">*</span>
+                    </label>
                     <input
                       type="text"
                       required
                       value={txCategory}
                       onChange={e => setTxCategory(e.target.value)}
-                      placeholder="e.g. Groceries, Tech"
-                      className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      placeholder="e.g. Groceries, Tech, Client Pay"
+                      className="h-10 sm:h-10.5 w-full rounded-xl border border-slate-200 px-3 text-xs sm:text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none transition-all"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Account</label>
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Payment Account
+                    </label>
                     <select
                       value={txAccount || accounts[0]?.id || ''}
                       onChange={e => setTxAccount(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-2 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      className="h-10 sm:h-10.5 w-full rounded-xl border border-slate-200 px-2.5 text-xs sm:text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none cursor-pointer transition-all"
                     >
                       {accounts.length === 0 ? (
                         <option value="">No account available</option>
                       ) : (
                         accounts.map(a => (
-                          <option key={a.id} value={a.id}>{a.name} (₹{Number(a.balance).toLocaleString('en-IN')})</option>
+                          <option key={a.id} value={a.id}>
+                            {a.name} (₹{Number(a.balance).toLocaleString('en-IN')})
+                          </option>
                         ))
                       )}
                     </select>
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">From Account</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      From Account
+                    </label>
                     <select
                       value={txAccount || accounts[0]?.id || ''}
                       onChange={e => setTxAccount(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-2 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      className="h-10 sm:h-10.5 w-full rounded-xl border border-slate-200 px-2.5 text-xs sm:text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none cursor-pointer transition-all"
                     >
                       {accounts.map(a => (
                         <option key={a.id} value={a.id}>{a.name} (₹{Number(a.balance).toLocaleString('en-IN')})</option>
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">To Account</label>
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      To Account
+                    </label>
                     <select
                       value={txToAccount || accounts[1]?.id || accounts[0]?.id || ''}
                       onChange={e => setTxToAccount(e.target.value)}
-                      className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-2 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      className="h-10 sm:h-10.5 w-full rounded-xl border border-slate-200 px-2.5 text-xs sm:text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none cursor-pointer transition-all"
                     >
                       {accounts.map(a => (
                         <option key={a.id} value={a.id}>{a.name} (₹{Number(a.balance).toLocaleString('en-IN')})</option>
@@ -661,22 +851,156 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                 </div>
               )}
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Note / Memo</label>
+              {/* Note / Memo */}
+              <div className="space-y-1">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Note / Reference (Optional)
+                </label>
                 <input
                   type="text"
                   value={txNote}
                   onChange={e => setTxNote(e.target.value)}
-                  placeholder="Optional detail or reference..."
-                  className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  placeholder="Order ID, vendor details, memo..."
+                  className="h-10 sm:h-10.5 w-full rounded-xl border border-slate-200 px-3 text-xs sm:text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none transition-all"
                 />
               </div>
 
+              {/* Bill / Purchase Receipt File Upload Zone */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  Bill / Purchase Receipt Attachment
+                </label>
+
+                {!txAttachedFile ? (
+                  <div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      id="tx-form-file"
+                      accept=".pdf,.png,.jpg,.jpeg,.webp"
+                      onChange={handleAttachTxFile}
+                    />
+                    <label
+                      htmlFor="tx-form-file"
+                      className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 p-3.5 sm:p-4 text-center hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-all cursor-pointer group"
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 shadow-2xs group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <Paperclip className="h-4 w-4" />
+                      </div>
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        Choose Bill / Invoice / Receipt Scan
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        Single attachment works for both Ledger & Vault (PDF, PNG, JPG)
+                      </span>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/50 dark:bg-indigo-950/40 p-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-2xs">
+                        <FileText className="h-4.5 w-4.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-xs">
+                          {txAttachedFile.name}
+                        </p>
+                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                          {txAttachedFile.size} · Ready to save
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewFile({ name: txAttachedFile.name, data: txAttachedFile.data, type: txAttachedFile.type })}
+                        className="flex h-8 items-center gap-1 rounded-lg bg-white dark:bg-slate-800 px-2.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/80 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                        title="Preview attached file"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">View</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTxAttachedFile(null)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                        title="Remove file"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sync with Things & Document Vault (Custom Switch Panel) */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 p-3.5 space-y-3 transition-colors">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 shrink-0">
+                      <Receipt className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                        Sync with Things & Document Vault
+                      </span>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Archives this bill in Purchase Receipts vault automatically
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Accessible Toggle Switch */}
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={txLinkToReceipt}
+                    onClick={() => { setTxLinkToReceipt(!txLinkToReceipt); if (!txLinkToReceipt) setTxReceiptMode('link_existing'); }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      txLinkToReceipt ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                        txLinkToReceipt ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Optional link to an existing Receipt; Finance never creates a Receipt automatically. */}
+                {txLinkToReceipt && (
+                  <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80 space-y-3 animate-in fade-in duration-150">
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        Select Existing Purchase Receipt from Vault
+                      </label>
+                      <select
+                        value={txSelectedReceiptId}
+                        onChange={e => setTxSelectedReceiptId(e.target.value)}
+                        className="h-9.5 w-full rounded-xl border border-slate-200 bg-white px-2.5 text-xs sm:text-sm text-slate-900 focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white outline-none cursor-pointer"
+                      >
+                        <option value="">-- Choose Receipt --</option>
+                        {receipts?.map(r => (
+                          <option key={r.id} value={r.id}>
+                            {r.title} {r.amount ? `(₹${r.amount})` : ''} {r.fileName ? '📎' : ''} - {r.date || 'No date'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 cursor-pointer"
+                className="flex h-11 sm:h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 active:scale-[0.99] transition-all cursor-pointer"
               >
-                + Commit Transaction to Ledger
+                <Plus className="h-4 w-4" />
+                <span>Commit Transaction to Ledger</span>
               </button>
             </form>
           </div>
@@ -1465,32 +1789,79 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                 No transactions match your current search or filter.
               </div>
             ) : (
-              filteredTransactions.slice().reverse().map(tx => (
-                <div key={tx.id} className="flex items-center justify-between py-3 text-xs">
-                  <div>
-                    <div className="font-semibold text-slate-900 dark:text-white">
-                      {tx.category} {tx.note && <span className="font-normal text-slate-400">({tx.note})</span>}
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      {tx.date} · <span className="capitalize font-medium">{tx.type}</span>
-                    </div>
-                  </div>
+              filteredTransactions.slice().reverse().map(tx => {
+                const linkedRec = tx.linkedReceiptId ? receipts.find(r => r.id === tx.linkedReceiptId) : undefined;
+                const attachName = tx.fileName;
+                const attachData = tx.fileData;
+                const attachType = tx.fileType;
 
-                  <div className="flex items-center gap-3">
-                    <span className={`font-mono font-bold tabular-nums ${tx.type === 'income' ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>
-                      {tx.type === 'income' ? '+' : '-'}₹{tx.amount.toLocaleString('en-IN')}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget({ store: 'finance', id: tx.id, name: `${tx.category} (₹${tx.amount})` })}
-                      className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors cursor-pointer"
-                      title="Delete transaction record"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                return (
+                  <div key={tx.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3 text-xs gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-slate-900 dark:text-white flex flex-wrap items-center gap-2">
+                        <span>{tx.category}</span>
+                        {tx.note && <span className="font-normal text-slate-500 dark:text-slate-400">({tx.note})</span>}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5 flex flex-wrap items-center gap-2">
+                        <span>{tx.date}</span>
+                        <span>·</span>
+                        <span className="capitalize font-medium">{tx.type}</span>
+                        {tx.accountId && (
+                          <>
+                            <span>·</span>
+                            <span className="text-slate-500">{accounts.find(a => a.id === tx.accountId)?.name}</span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Attachment & Things Vault Link Badges */}
+                      {(attachName || tx.linkedReceiptId) && (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {attachName && attachData && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewFile({ name: attachName, data: attachData, type: attachType })}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer transition-colors"
+                              title="Click to view attached bill/receipt"
+                            >
+                              <Paperclip className="h-3 w-3" />
+                              <span className="truncate max-w-[160px]">{attachName}</span>
+                              <Eye className="h-2.5 w-2.5 opacity-70" />
+                            </button>
+                          )}
+
+                          {tx.linkedReceiptId && (
+                            <button
+                              type="button"
+                              onClick={() => onNavigate?.('things')}
+                              className="inline-flex items-center gap-1 rounded-lg bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 text-[11px] font-medium text-purple-700 dark:text-purple-300 hover:underline cursor-pointer"
+                              title="Open in Things & Document Vault"
+                            >
+                              <Receipt className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+                              <span>Vault Receipt: {linkedRec?.title || 'Linked'}</span>
+                              <ExternalLink className="h-2.5 w-2.5" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                      <span className={`font-mono font-bold tabular-nums text-sm ${tx.type === 'income' ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>
+                        {tx.type === 'income' ? '+' : '-'}₹{tx.amount.toLocaleString('en-IN')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget({ store: 'finance', id: tx.id, name: `${tx.category} (₹${tx.amount})` })}
+                        className="p-1.5 text-slate-300 hover:text-rose-500 transition-colors cursor-pointer"
+                        title="Delete transaction record"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </section>
@@ -1507,6 +1878,70 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {/* BILL / RECEIPT FILE PREVIEW & DOWNLOAD MODAL */}
+      {previewFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Paperclip className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-md">
+                  {previewFile.name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewFile(null)}
+                className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto my-4 flex items-center justify-center bg-slate-50 dark:bg-slate-950 rounded-2xl p-4">
+              {previewFile.data.startsWith('data:image/') ? (
+                <img
+                  src={previewFile.data}
+                  alt={previewFile.name}
+                  className="max-h-[50vh] max-w-full rounded-xl object-contain shadow-xs"
+                />
+              ) : previewFile.data.startsWith('data:application/pdf') ? (
+                <iframe
+                  src={previewFile.data}
+                  title={previewFile.name}
+                  className="w-full h-[50vh] rounded-xl border border-slate-200 dark:border-slate-800"
+                />
+              ) : (
+                <div className="text-center py-10 space-y-3">
+                  <FileText className="h-12 w-12 mx-auto text-indigo-500" />
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    File format ready for viewing or saving to device.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setPreviewFile(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Close
+              </button>
+              <a
+                href={previewFile.data}
+                download={previewFile.name}
+                className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 cursor-pointer"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Download File</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

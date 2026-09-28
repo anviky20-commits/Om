@@ -10,7 +10,7 @@ import {
   ImportantRecordItem, ReminderItem, NotificationItem, AchievementItem,
   CalcHistoryItem, Skill, Course, WorkResponsibility
 } from './types';
-import { storage, seedInitialDataIfEmpty } from './lib/storage';
+import { storage, seedInitialDataIfEmpty, verifyProfilePassword, verifyProfileRecoveryAnswer, getProfileSecurityInfo, setProfileCredentials, resetProfilePassword } from './lib/storage';
 
 // Components
 import { Header } from './components/Header';
@@ -42,6 +42,166 @@ import { SpiritualView } from './views/SpiritualView';
 import { ThingsView } from './views/ThingsView';
 import { SettingsView } from './views/SettingsView';
 
+
+function AppLockScreen({
+  settings,
+  onUnlocked
+}: {
+  settings: AppState;
+  onUnlocked: (profileId: string) => void;
+}) {
+  const profiles = settings.profiles || [];
+  const [profileId, setProfileId] = useState(settings.profileId || profiles[0]?.id || '');
+  const profile = profiles.find(p => p.id === profileId) || profiles[0];
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState<'login' | 'setup' | 'recovery' | 'reset'>('login');
+  const [hint, setHint] = useState<string>('');
+  const [showHint, setShowHint] = useState(false);
+  const [question, setQuestion] = useState<string>('');
+  const [recoveryAnswer, setRecoveryAnswer] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+  const [newHint, setNewHint] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!profile) return;
+      const info = await getProfileSecurityInfo(profile.id);
+      if (cancelled) return;
+      setHint(info?.passwordHint || '');
+      setQuestion(info?.recoveryQuestion || '');
+      const credentialsReady = Boolean(
+        profile.passwordHash &&
+        profile.passwordSalt &&
+        profile.recoveryAnswerHash &&
+        profile.recoveryAnswerSalt
+      );
+      setMode(credentialsReady ? 'login' : 'setup');
+      setPassword(''); setRecoveryAnswer(''); setNewPassword(''); setNewPasswordConfirm(''); setError(''); setShowHint(false);
+    };
+    load().catch(err => { if (!cancelled) setError(err?.message || 'Unable to load profile security settings.'); });
+    return () => { cancelled = true; };
+  }, [profileId, profile]);
+
+  const selectProfile = (id: string) => {
+    setProfileId(id);
+  };
+
+  const unlock = async () => {
+    if (!profile) return;
+    setBusy(true); setError('');
+    try {
+      if (mode === 'setup') {
+        if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.');
+        if (newPassword !== newPasswordConfirm) throw new Error('Password and Confirm Password do not match.');
+        if (!newHint.trim() || !question.trim() || !recoveryAnswer.trim()) throw new Error('Hint, recovery question, and recovery answer are required.');
+        await setProfileCredentials(profile.id, newPassword, newHint, question, recoveryAnswer);
+        onUnlocked(profile.id);
+        return;
+      }
+      if (mode === 'login') {
+        const ok = await verifyProfilePassword(profile.id, password);
+        if (!ok) throw new Error('Incorrect password.');
+        onUnlocked(profile.id);
+        return;
+      }
+      if (mode === 'recovery') {
+        const ok = await verifyProfileRecoveryAnswer(profile.id, recoveryAnswer);
+        if (!ok) throw new Error('Recovery answer is incorrect.');
+        setMode('reset');
+        setRecoveryAnswer('');
+        return;
+      }
+      if (mode === 'reset') {
+        if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.');
+        if (newPassword !== newPasswordConfirm) throw new Error('Password and Confirm Password do not match.');
+        if (!newHint.trim()) throw new Error('Password hint is required.');
+        await resetProfilePassword(profile.id, newPassword, newHint);
+        onUnlocked(profile.id);
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Unable to continue.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const showRecovery = () => {
+    setMode('recovery'); setError(''); setRecoveryAnswer(''); setShowHint(true);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 text-white text-xl font-black">OM</div>
+          <h1 className="text-xl font-bold text-white">Om-LifeOS</h1>
+          <p className="mt-1 text-xs text-slate-400">Local profile security</p>
+        </div>
+        <div className="mb-4 space-y-2">
+          {profiles.map(p => (
+            <button key={p.id} type="button" onClick={() => selectProfile(p.id)} className={`w-full rounded-xl border p-3 text-left ${p.id === profile?.id ? 'border-indigo-500 bg-indigo-950/40' : 'border-slate-700 bg-slate-800/60'}`}>
+              <div className="text-sm font-bold text-white">{p.name}</div>
+              <div className="text-[11px] text-slate-400">{p.role || 'Local Profile'}</div>
+            </button>
+          ))}
+        </div>
+
+        {profile && mode === 'login' && (
+          <>
+            <div className="mb-3 text-sm font-semibold text-white">Enter password for {profile.name}</div>
+            <input autoFocus type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && unlock()} placeholder="Password" className="mb-3 h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white outline-none focus:border-indigo-500" />
+            <button type="button" onClick={unlock} disabled={busy} className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Checking…' : 'Unlock App'}</button>
+            <button type="button" onClick={showRecovery} className="mt-3 w-full text-xs font-semibold text-indigo-400 hover:underline">Forgot Password?</button>
+            {showHint && hint && <div className="mt-3 rounded-xl bg-slate-800 p-3 text-xs text-slate-300"><span className="font-bold text-slate-200">Hint:</span> {hint}</div>}
+          </>
+        )}
+
+        {profile && mode === 'setup' && (
+          <>
+            <div className="mb-3 text-sm font-semibold text-white">Create password for {profile.name}</div>
+            <div className="space-y-2">
+              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Create Password (min 6)" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+              <input type="password" value={newPasswordConfirm} onChange={e => setNewPasswordConfirm(e.target.value)} placeholder="Confirm Password" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+              <input type="text" value={newHint} onChange={e => setNewHint(e.target.value)} placeholder="Password Hint / Clue" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+              <input type="text" value={question} onChange={e => setQuestion(e.target.value)} placeholder="Recovery Question" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+              <input type="text" value={recoveryAnswer} onChange={e => setRecoveryAnswer(e.target.value)} placeholder="Recovery Answer" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+            </div>
+            <button type="button" onClick={unlock} disabled={busy} className="mt-3 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? 'Saving…' : 'Create Password & Open App'}</button>
+          </>
+        )}
+
+        {profile && mode === 'recovery' && (
+          <>
+            <div className="mb-2 text-sm font-semibold text-white">Password Recovery</div>
+            <div className="mb-3 rounded-xl bg-slate-800 p-3 text-xs text-slate-300"><span className="font-bold text-slate-200">Hint:</span> {hint || 'No hint was saved.'}</div>
+            <div className="mb-2 text-xs font-semibold text-slate-300">{question || 'Recovery question not configured.'}</div>
+            <input autoFocus type="text" value={recoveryAnswer} onChange={e => setRecoveryAnswer(e.target.value)} placeholder="Recovery Answer" className="mb-3 h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+            <button type="button" onClick={unlock} disabled={busy} className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white">Verify Recovery Answer</button>
+            <button type="button" onClick={() => setMode('login')} className="mt-3 w-full text-xs text-slate-400 hover:text-white">Back to password</button>
+          </>
+        )}
+
+        {profile && mode === 'reset' && (
+          <>
+            <div className="mb-3 text-sm font-semibold text-white">Set a New Password</div>
+            <div className="space-y-2">
+              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New Password (min 6)" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+              <input type="password" value={newPasswordConfirm} onChange={e => setNewPasswordConfirm(e.target.value)} placeholder="Confirm New Password" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+              <input type="text" value={newHint} onChange={e => setNewHint(e.target.value)} placeholder="New Password Hint" className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm text-white" />
+            </div>
+            <button type="button" onClick={unlock} disabled={busy} className="mt-3 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white">Reset Password & Open App</button>
+          </>
+        )}
+        {error && <div className="mt-4 rounded-xl border border-red-900/60 bg-red-950/40 p-3 text-xs text-red-300">{error}</div>}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [activeModule, setActiveModule] = useState<NavModule>('dashboard');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -68,6 +228,7 @@ export default function App() {
 
   // Entities state
   const [appSettings, setAppSettings] = useState<AppState | undefined>();
+  const [unlockedProfileId, setUnlockedProfileId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
@@ -135,8 +296,18 @@ export default function App() {
 
   const loadAllData = useCallback(async () => {
     try {
+      const settingsData = await storage.getSingleton<AppState>('appSettings');
+      if (!settingsData?.profileId) return;
+      setAppSettings(settingsData);
+      if (settingsData.themeMode) setTheme(settingsData.themeMode);
+      if (unlockedProfileId && settingsData.profileId !== unlockedProfileId) {
+        storage.setActiveProfile(null);
+        return;
+      }
+      if (!unlockedProfileId) return;
+      storage.setActiveProfile(settingsData.profileId);
+      await storage.ensureProfileOwnership(settingsData.profileId);
       const [
-        settingsData,
         tasksData,
         goalsData,
         milestonesData,
@@ -186,7 +357,6 @@ export default function App() {
         achData,
         calcData
       ] = await Promise.all([
-        storage.getSingleton<AppState>('appSettings'),
         storage.getAll<Task>('tasks'),
         storage.getAll<Goal>('goals'),
         storage.getAll<Milestone>('milestones'),
@@ -295,13 +465,17 @@ export default function App() {
     } catch (err) {
       console.error('Failed to load initial data', err);
     }
-  }, []);
+  }, [unlockedProfileId]);
 
-  // First turn initialization
+  // First turn initialization: load only settings before the app is unlocked.
   useEffect(() => {
-    seedInitialDataIfEmpty().then(() => {
-      loadAllData();
-    });
+    seedInitialDataIfEmpty().then(async () => {
+      const settingsData = await storage.getSingleton<AppState>('appSettings');
+      if (settingsData) {
+        setAppSettings(settingsData);
+        if (settingsData.themeMode) setTheme(settingsData.themeMode);
+      }
+    }).catch(err => console.error('Failed to initialize Om-LifeOS', err));
 
     // Subscribe to scheduled alarms & reminder triggers
     alarmService.onAlarmTrigger((alarmData) => {
@@ -381,12 +555,27 @@ export default function App() {
     if (!channel) return;
 
     const handleMessage = (e: MessageEvent) => {
-      if (e.data?.sourceDevice !== storage.deviceId) {
+      if (e.data?.sourceDevice !== storage.deviceId && unlockedProfileId) {
         loadAllData();
       }
     };
     channel.addEventListener('message', handleMessage);
     return () => channel.removeEventListener('message', handleMessage);
+  }, [loadAllData, unlockedProfileId]);
+
+  const handleProfileUnlocked = useCallback(async (profileId: string) => {
+    const settings = (await storage.getSingleton<AppState>('appSettings')) || ({} as AppState);
+    const profile = settings.profiles?.find(p => p.id === profileId);
+    if (!profile) return;
+    settings.profileId = profileId;
+    settings.profiles = (settings.profiles || []).map(p => ({ ...p, isCurrent: p.id === profileId }));
+    settings.currentUser = { name: profile.name, email: profile.email, provider: 'local' };
+    await storage.setSingleton('appSettings', settings);
+    storage.setActiveProfile(profileId);
+    await storage.ensureProfileOwnership(profileId);
+    setUnlockedProfileId(profileId);
+    setAppSettings(settings);
+    await loadAllData();
   }, [loadAllData]);
 
   const toggleTheme = async () => {
@@ -442,6 +631,14 @@ export default function App() {
   const openTasksCount = tasks.filter(t => !t.done).length;
   const categoriesList = appSettings?.noteCategories || ['General', 'Strategy', 'Projects', 'Finance', 'Ideas'];
 
+  if (!appSettings) {
+    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 text-sm">Loading Om-LifeOS…</div>;
+  }
+
+  if (!unlockedProfileId || unlockedProfileId !== appSettings.profileId) {
+    return <AppLockScreen settings={appSettings} onUnlocked={handleProfileUnlocked} />;
+  }
+
   return (
     <div
       data-app-root="true"
@@ -468,9 +665,11 @@ export default function App() {
         onSelectProfile={async id => {
           const s = (await storage.getSingleton<AppState>('appSettings')) || ({} as AppState);
           s.profileId = id;
+          s.profiles = (s.profiles || []).map(p => ({ ...p, isCurrent: p.id === id }));
           await storage.setSingleton('appSettings', s);
-          loadAllData();
-          showToast('Workspace switched');
+          setAppSettings(s);
+          setUnlockedProfileId(null);
+          showToast('Profile selected — password required');
         }}
         onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
       />
@@ -595,6 +794,8 @@ export default function App() {
                 assets={assets}
                 liabilities={liabilities}
                 financialGoals={financialGoals}
+                receipts={receipts}
+                onNavigate={setActiveModule}
                 onRefresh={loadAllData}
                 onSuccess={showToast}
               />
@@ -653,6 +854,9 @@ export default function App() {
                 documents={documents}
                 warranties={warranties}
                 receipts={receipts}
+                financeAccounts={financeAccounts}
+                financeTransactions={financeTransactions}
+                onNavigate={setActiveModule}
                 certificates={certificates}
                 importantRecords={importantRecords}
                 onRefresh={loadAllData}

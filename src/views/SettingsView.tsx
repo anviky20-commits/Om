@@ -5,7 +5,7 @@ import {
   Monitor, Palette, Copy, Check,
   CheckCircle2, Globe, Eye
 } from 'lucide-react';
-import { storage, exportToCsv, exportToDocx, exportToXlsx, exportToPdf, exportToCompleteHtml, generateUUID } from '../lib/storage';
+import { storage, exportToCsv, exportToDocx, exportToXlsx, exportToPdf, exportToCompleteHtml, generateUUID, createLocalProfile } from '../lib/storage';
 import { AppState, UserProfile } from '../types';
 import { ConfirmModal } from '../components/ConfirmModal';
 
@@ -36,6 +36,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'system' | 'workspaces' | 'exports'>('system');
   const [newProfileName, setNewProfileName] = useState('');
+  const [newProfilePassword, setNewProfilePassword] = useState('');
+  const [newProfilePasswordConfirm, setNewProfilePasswordConfirm] = useState('');
+  const [newProfileHint, setNewProfileHint] = useState('');
+  const [newProfileRecoveryQuestion, setNewProfileRecoveryQuestion] = useState('');
+  const [newProfileRecoveryAnswer, setNewProfileRecoveryAnswer] = useState('');
   const [storageStats, setStorageStats] = useState({ usage: 0, quota: 0, percent: 0, level: 'healthy' });
   const [integrityStats, setIntegrityStats] = useState<{ checked: number; issues: number; repaired: number }>({ checked: 0, issues: 0, repaired: 0 });
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
@@ -71,17 +76,41 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       calcFavorites: []
     };
 
+    if (newProfilePassword.length < 6) {
+      onError('Password must be at least 6 characters.');
+      return;
+    }
+    if (newProfilePassword !== newProfilePasswordConfirm) {
+      onError('Password and Confirm Password do not match.');
+      return;
+    }
+    if (!newProfileHint.trim() || !newProfileRecoveryQuestion.trim() || !newProfileRecoveryAnswer.trim()) {
+      onError('Password hint, recovery question, and recovery answer are required.');
+      return;
+    }
+
+    const id = generateUUID();
     const newProfile: UserProfile = {
-      id: generateUUID(),
+      id,
       name: newProfileName.trim(),
+      email: `${newProfileName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'user'}-${id.slice(0, 8)}@omlifeos.local`,
+      authType: 'local',
       createdAt: Date.now()
     };
 
-    appSettings.profiles = [...(appSettings.profiles || []), newProfile];
-    await storage.setSingleton('appSettings', appSettings);
-    onSuccess(`Workspace profile "${newProfileName}" created`);
-    setNewProfileName('');
-    onRefresh();
+    try {
+      await createLocalProfile(appSettings, newProfile, newProfilePassword, newProfileHint, newProfileRecoveryQuestion, newProfileRecoveryAnswer);
+      onSuccess(`Workspace profile "${newProfileName}" created`);
+      setNewProfileName('');
+      setNewProfilePassword('');
+      setNewProfilePasswordConfirm('');
+      setNewProfileHint('');
+      setNewProfileRecoveryQuestion('');
+      setNewProfileRecoveryAnswer('');
+      onRefresh();
+    } catch (err: any) {
+      onError(err?.message || 'Unable to create workspace profile.');
+    }
   };
 
   const handleSwitchProfile = async (id: string) => {
@@ -634,15 +663,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <form onSubmit={handleCreateProfile} className="mt-4 space-y-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Workspace Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={newProfileName}
-                    onChange={e => setNewProfileName(e.target.value)}
-                    placeholder="e.g. Venture Operations, Family"
-                    className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800"
-                  />
+                  <input type="text" required value={newProfileName} onChange={e => setNewProfileName(e.target.value)} placeholder="e.g. Venture Operations, Family" className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800" />
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input type="password" required minLength={6} value={newProfilePassword} onChange={e => setNewProfilePassword(e.target.value)} placeholder="Password (6+ chars)" className="h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800" />
+                  <input type="password" required minLength={6} value={newProfilePasswordConfirm} onChange={e => setNewProfilePasswordConfirm(e.target.value)} placeholder="Confirm Password" className="h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800" />
+                </div>
+                <input type="text" required value={newProfileHint} onChange={e => setNewProfileHint(e.target.value)} placeholder="Password Hint / Clue" className="h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800" />
+                <input type="text" required value={newProfileRecoveryQuestion} onChange={e => setNewProfileRecoveryQuestion(e.target.value)} placeholder="Recovery Question" className="h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800" />
+                <input type="text" required value={newProfileRecoveryAnswer} onChange={e => setNewProfileRecoveryAnswer(e.target.value)} placeholder="Recovery Answer" className="h-9 w-full rounded-xl border border-slate-200 px-3 text-xs dark:border-slate-700 dark:bg-slate-800" />
                 <button
                   type="submit"
                   className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white hover:bg-indigo-500"
