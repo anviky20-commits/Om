@@ -96,11 +96,12 @@ export const MultiUserModal: React.FC<MultiUserModalProps> = ({
       const colors = ['#7c3aed', '#059669', '#ea580c', '#0284c7', '#db2777', '#4f46e5'];
       const avatarColor = colors[(settings.profiles?.length || 0) % colors.length];
       const avatarChar = newProfileName.trim().charAt(0).toUpperCase();
+      const newId = generateUUID();
       const newProf: UserProfile = {
-        id: generateUUID(),
+        id: newId,
         name: newProfileName.trim(),
         role: newProfileRole,
-        email: `${cleanSlug || 'user'}-${newProf.id.slice(0, 8)}@omlifeos.local`,
+        email: `${cleanSlug || 'user'}-${newId.slice(0, 8)}@omlifeos.local`,
         avatarColor,
         avatarChar,
         authType: 'local',

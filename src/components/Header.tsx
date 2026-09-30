@@ -89,13 +89,19 @@ export const Header: React.FC<HeaderProps> = ({
     hour12: !is24Hour
   });
 
+  const isTauri = typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
+
   return (
     <header
       onMouseDown={(event) => {
-        if (event.button !== 0) return;
+        if (!isTauri || event.button !== 0) return;
         const target = event.target as HTMLElement;
         if (target.closest('button, input, select, textarea, a, [role="button"]')) return;
-        void getCurrentWindow().startDragging();
+        try {
+          void getCurrentWindow().startDragging();
+        } catch {
+          // Graceful fallback in web mode
+        }
       }}
       className="sticky top-0 z-30 flex h-14 sm:h-16 w-full items-center justify-between border-b border-slate-200 bg-white/95 px-2 sm:px-4 lg:px-6 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95 transition-colors gap-1 sm:gap-2">
       {/* Zone 1: Left - Brand Identity & Nepali BS / Gregorian AD Date (Date is placed where search was) */}
@@ -346,37 +352,39 @@ export const Header: React.FC<HeaderProps> = ({
           {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-700" />}
         </button>
 
-        {/* Custom Window Controls */}
-        <div className="flex items-center shrink-0">
-          <button
-            type="button"
-            onClick={() => void getCurrentWindow().minimize()}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-slate-500 transition-colors hover:bg-slate-200/40 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/40 dark:hover:text-white cursor-pointer"
-            title="Minimize"
-            aria-label="Minimize window"
-          >
-            <Minus className="h-4 w-4" />
-          </button>
-          <button
-            id="om-maximize-button"
-            type="button"
-            onClick={() => void getCurrentWindow().toggleMaximize()}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-slate-500 transition-colors hover:bg-slate-200/40 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/40 dark:hover:text-white cursor-pointer"
-            title="Maximize"
-            aria-label="Maximize window"
-          >
-            <Square className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => void getCurrentWindow().close()}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-slate-500 transition-colors hover:bg-red-500/15 hover:text-red-600 dark:text-slate-300 dark:hover:bg-red-500/20 dark:hover:text-red-400 cursor-pointer"
-            title="Close"
-            aria-label="Close window"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
+        {/* Custom Window Controls (Desktop/Tauri only) */}
+        {isTauri && (
+          <div className="flex items-center shrink-0">
+            <button
+              type="button"
+              onClick={() => { try { void getCurrentWindow().minimize(); } catch {} }}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-slate-500 transition-colors hover:bg-slate-200/40 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/40 dark:hover:text-white cursor-pointer"
+              title="Minimize"
+              aria-label="Minimize window"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <button
+              id="om-maximize-button"
+              type="button"
+              onClick={() => { try { void getCurrentWindow().toggleMaximize(); } catch {} }}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-slate-500 transition-colors hover:bg-slate-200/40 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/40 dark:hover:text-white cursor-pointer"
+              title="Maximize"
+              aria-label="Maximize window"
+            >
+              <Square className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => { try { void getCurrentWindow().close(); } catch {} }}
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-slate-500 transition-colors hover:bg-red-500/15 hover:text-red-600 dark:text-slate-300 dark:hover:bg-red-500/20 dark:hover:text-red-400 cursor-pointer"
+              title="Close"
+              aria-label="Close window"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

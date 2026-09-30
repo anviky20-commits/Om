@@ -62,7 +62,7 @@ async function deriveCredentialHash(secret: string, salt: Uint8Array): Promise<s
     'raw', encoder.encode(secret), 'PBKDF2', false, ['deriveBits']
   );
   const bits = await globalThis.crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: 150000, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: salt as unknown as BufferSource, iterations: 150000, hash: 'SHA-256' },
     key,
     256
   );
