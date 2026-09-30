@@ -403,7 +403,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                     No strategic goals created yet. Register your first major life objective.
                   </div>
                 ) : (
-                  goals.map(g => (
+                  [...goals].sort((a, b) => (b.targetDate || '').localeCompare(a.targetDate || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(g => (
                     <div
                       key={g.id}
                       className="rounded-2xl border border-slate-100 p-4 transition-all hover:border-slate-200 dark:border-slate-800 dark:hover:border-slate-700"
@@ -648,7 +648,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
                   No strategies defined yet. Connect a tactic to your strategic goals.
                 </div>
               ) : (
-                strategies.map(s => (
+                [...strategies].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(s => (
                   <div key={s.id} className="rounded-2xl border border-slate-100 p-4 text-xs dark:border-slate-800 group transition-all hover:border-slate-200 dark:hover:border-slate-700">
                     <div className="flex justify-between items-start gap-2">
                       <div>
@@ -757,7 +757,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
               {milestones.length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No milestones yet.</div>
               ) : (
-                milestones.map(m => (
+                [...milestones].sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(m => (
                   <div key={m.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 flex justify-between items-center group">
                     <div className="flex items-center gap-3">
                       <button
@@ -890,7 +890,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
               {kpis.length === 0 ? (
                 <div className="col-span-full py-12 text-center text-xs text-slate-400">No KPIs registered yet.</div>
               ) : (
-                kpis.map(k => {
+                [...kpis].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(k => {
                   const target = Number(k.target) || 1;
                   const current = Number(k.current) || 0;
                   const pct = Math.min(100, (current / target) * 100);
@@ -1018,7 +1018,7 @@ export const GoalsView: React.FC<GoalsViewProps> = ({
               {missions.length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No active missions declared.</div>
               ) : (
-                missions.map(m => (
+                [...missions].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(m => (
                   <div key={m.id} className="rounded-2xl border border-slate-100 p-4 text-xs dark:border-slate-800 group">
                     <div className="flex justify-between items-start">
                       <div>

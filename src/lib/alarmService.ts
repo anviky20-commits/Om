@@ -11,6 +11,9 @@ export interface FocusAlarm {
   days: number[]; // 0=Sun, 1=Mon, ..., 6=Sat (empty array = one-time today/tomorrow)
   snoozedUntil?: number | null;
   lastTriggeredDate?: string;
+  linkedRoutineId?: string | null;
+  linkedRoutineName?: string | null;
+  sourceType?: 'routine' | 'manual';
   createdAt: number;
 }
 

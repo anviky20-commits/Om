@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  DollarSign, Plus, ArrowUpRight,
+  DollarSign, Plus, ArrowUpRight, ArrowUpDown,
   ShieldCheck, Trash2, TrendingUp, Landmark,
   Download, Upload, Paperclip, Receipt, ExternalLink,
   FileText, X, Eye
@@ -150,6 +150,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
   // Transactions Filter
   const [txSearch, setTxSearch] = useState('');
   const [txTypeFilter, setTxTypeFilter] = useState<'all' | 'expense' | 'income' | 'transfer' | 'repayment' | 'investment'>('all');
+  const [txSortOrder, setTxSortOrder] = useState<'desc' | 'asc'>('desc');
 
   // Delete modal state
   const [deleteTarget, setDeleteTarget] = useState<{ store: string; id: string; name: string } | null>(null);
@@ -579,11 +580,18 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
     onSuccess('Ledger exported as CSV');
   };
 
-  const filteredTransactions = transactions.filter(t => {
+  const sortedTransactions = [...transactions].sort((a, b) => {
+    const dateComp = (b.date || '').localeCompare(a.date || '');
+    if (dateComp !== 0) return txSortOrder === 'desc' ? dateComp : -dateComp;
+    const timeComp = (b.createdAt || 0) - (a.createdAt || 0);
+    return txSortOrder === 'desc' ? timeComp : -timeComp;
+  });
+
+  const filteredTransactions = sortedTransactions.filter(t => {
     if (txTypeFilter !== 'all' && t.type !== txTypeFilter) return false;
     if (txSearch) {
       const q = txSearch.toLowerCase();
-      const match = `${t.category} ${t.note || ''} ${t.type} ${t.amount}`.toLowerCase();
+      const match = `${t.category} ${t.note || ''} ${t.type} ${t.amount} ${t.date || ''}`.toLowerCase();
       return match.includes(q);
     }
     return true;
@@ -866,72 +874,49 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
               </div>
 
               {/* Bill / Purchase Receipt File Upload Zone */}
-              <div className="space-y-1.5 pt-1">
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                  Bill / Purchase Receipt Attachment
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Attach Bill / Purchase Receipt
                 </label>
-
-                {!txAttachedFile ? (
-                  <div>
-                    <input
-                      type="file"
-                      className="hidden"
-                      id="tx-form-file"
-                      accept=".pdf,.png,.jpg,.jpeg,.webp"
-                      onChange={handleAttachTxFile}
-                    />
+                <div className="mt-1">
+                  <input
+                    type="file"
+                    className="hidden"
+                    id="tx-form-file"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp"
+                    onChange={handleAttachTxFile}
+                  />
+                  <div className="flex items-center gap-2">
                     <label
                       htmlFor="tx-form-file"
-                      className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 p-3.5 sm:p-4 text-center hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-all cursor-pointer group"
+                      className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer transition-colors"
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 shadow-2xs group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                        <Paperclip className="h-4 w-4" />
-                      </div>
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                        Choose Bill / Invoice / Receipt Scan
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        Single attachment works for both Ledger & Vault (PDF, PNG, JPG)
-                      </span>
+                      <Paperclip className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                      <span className="truncate">{txAttachedFile ? txAttachedFile.name : 'Choose File'}</span>
                     </label>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/50 dark:bg-indigo-950/40 p-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-2xs">
-                        <FileText className="h-4.5 w-4.5" />
+                    {txAttachedFile && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewFile({ name: txAttachedFile.name, data: txAttachedFile.data, type: txAttachedFile.type })}
+                          className="flex h-9 items-center gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 px-2.5 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                          title="Preview attached file"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>View</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTxAttachedFile(null)}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                          title="Remove file"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-xs">
-                          {txAttachedFile.name}
-                        </p>
-                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
-                          {txAttachedFile.size} · Ready to save
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewFile({ name: txAttachedFile.name, data: txAttachedFile.data, type: txAttachedFile.type })}
-                        className="flex h-8 items-center gap-1 rounded-lg bg-white dark:bg-slate-800 px-2.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/80 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                        title="Preview attached file"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">View</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTxAttachedFile(null)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                        title="Remove file"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
 
               {/* Sync with Things & Document Vault (Custom Switch Panel) */}
@@ -1409,7 +1394,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                   Recent Repayment Receipts ({loanPayments.length})
                 </h2>
                 <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800 max-h-48 overflow-y-auto text-xs">
-                  {loanPayments.slice().reverse().map(p => (
+                  {[...loanPayments].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(p => (
                     <div key={p.id} className="py-2 flex justify-between items-center">
                       <div>
                         <div className="font-semibold text-slate-900 dark:text-white">{p.loanName}</div>
@@ -1749,6 +1734,15 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
               />
               <button
                 type="button"
+                onClick={() => setTxSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                className="flex items-center gap-1.5 h-8 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+                title={txSortOrder === 'desc' ? 'Current: Newest First. Click for Oldest First.' : 'Current: Oldest First. Click for Newest First.'}
+              >
+                <ArrowUpDown className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                <span>{txSortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleExportCSV}
                 className="flex items-center gap-1.5 h-8 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
               >
@@ -1789,7 +1783,7 @@ export const FinanceView: React.FC<FinanceViewProps> = ({
                 No transactions match your current search or filter.
               </div>
             ) : (
-              filteredTransactions.slice().reverse().map(tx => {
+              filteredTransactions.map(tx => {
                 const linkedRec = tx.linkedReceiptId ? receipts.find(r => r.id === tx.linkedReceiptId) : undefined;
                 const attachName = tx.fileName;
                 const attachData = tx.fileData;

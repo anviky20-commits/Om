@@ -807,28 +807,32 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
               {/* Attach File Section */}
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">Attach Document / Photo / Invoice</label>
-                <div className="mt-1 flex items-center gap-2">
+                <div className="mt-1">
                   <input
                     type="file"
                     className="hidden"
                     id="thing-form-file"
                     onChange={handleAttachFormFile}
                   />
-                  <label
-                    htmlFor="thing-form-file"
-                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer"
-                  >
-                    <Paperclip className="h-3.5 w-3.5" />
-                    <span>{attachedFile ? 'Change File' : 'Attach File'}</span>
-                  </label>
-                  {attachedFile && (
-                    <div className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 font-medium truncate max-w-[200px]">
-                      <span className="truncate">{attachedFile.name}</span>
-                      <button type="button" onClick={() => setAttachedFile(null)} className="text-slate-400 hover:text-rose-500">
-                        <X className="h-3 w-3" />
+                  <div className="flex items-center gap-2">
+                    <label
+                      htmlFor="thing-form-file"
+                      className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer transition-colors"
+                    >
+                      <Paperclip className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                      <span className="truncate">{attachedFile ? attachedFile.name : 'Choose File'}</span>
+                    </label>
+                    {attachedFile && (
+                      <button
+                        type="button"
+                        onClick={() => setAttachedFile(null)}
+                        className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                        title="Remove file"
+                      >
+                        <X className="h-4 w-4" />
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -855,8 +859,9 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
                 .length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No items found matching criteria.</div>
               ) : (
-                things
+                [...things]
                   .filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.category.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
                   .map(t => (
                     <div key={t.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
                       <div className="flex justify-between items-start gap-2">
@@ -1031,8 +1036,9 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
                 .length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No documents registered.</div>
               ) : (
-                documents
+                [...documents]
                   .filter(d => d.title.toLowerCase().includes(searchQuery.toLowerCase()) || (d.type && d.type.toLowerCase().includes(searchQuery.toLowerCase())))
+                  .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0))
                   .map(d => (
                     <div key={d.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
                       <div className="flex justify-between items-start gap-2">
@@ -1167,8 +1173,9 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
                 .length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No warranties registered.</div>
               ) : (
-                warranties
+                [...warranties]
                   .filter(w => w.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .sort((a, b) => (b.expiry || '').localeCompare(a.expiry || '') || (b.createdAt || 0) - (a.createdAt || 0))
                   .map(w => (
                     <div key={w.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
                       <div className="flex justify-between items-start gap-2">
@@ -1291,71 +1298,48 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
               </div>
 
               {/* Bill / Invoice Scan Attachment Zone */}
-              <div className="space-y-1.5 pt-1">
-                <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                  Receipt Invoice Scan / File
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Attach Receipt / Bill / Invoice Scan
                 </label>
-
-                {!attachedFile ? (
-                  <div>
-                    <input
-                      type="file"
-                      className="hidden"
-                      id="rec-form-file"
-                      onChange={handleAttachFormFile}
-                    />
+                <div className="mt-1">
+                  <input
+                    type="file"
+                    className="hidden"
+                    id="rec-form-file"
+                    onChange={handleAttachFormFile}
+                  />
+                  <div className="flex items-center gap-2">
                     <label
                       htmlFor="rec-form-file"
-                      className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-800/40 p-3.5 sm:p-4 text-center hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-all cursor-pointer group"
+                      className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer transition-colors"
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 shadow-2xs group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                        <Paperclip className="h-4 w-4" />
-                      </div>
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                        Choose Receipt / Invoice Scan
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        Works with single file upload for Vault & Finance (PDF, PNG, JPG)
-                      </span>
+                      <Paperclip className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                      <span className="truncate">{attachedFile ? attachedFile.name : 'Choose File'}</span>
                     </label>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between gap-3 rounded-2xl border border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/50 dark:bg-indigo-950/40 p-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-2xs">
-                        <FileText className="h-4.5 w-4.5" />
+                    {attachedFile && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewFile({ name: attachedFile.name, data: attachedFile.data, type: attachedFile.type })}
+                          className="flex h-9 items-center gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 px-2.5 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                          title="Preview attached file"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>View</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAttachedFile(null)}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                          title="Remove file"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-xs">
-                          {attachedFile.name}
-                        </p>
-                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
-                          {attachedFile.size} · Ready to save
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setPreviewFile({ name: attachedFile.name, data: attachedFile.data, type: attachedFile.type })}
-                        className="flex h-8 items-center gap-1 rounded-lg bg-white dark:bg-slate-800 px-2.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/80 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                        title="Preview attached file"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">View</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAttachedFile(null)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                        title="Remove file"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -1464,8 +1448,9 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
                   No receipts found matching your search.
                 </div>
               ) : (
-                receipts
+                [...receipts]
                   .filter(r => r.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0))
                   .map(r => {
                     const linkedTx = r.linkedTransactionId ? financeTransactions.find(t => t.id === r.linkedTransactionId) : undefined;
                     const fileName = r.fileName;
@@ -1656,8 +1641,9 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
                 .length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No certificates registered.</div>
               ) : (
-                certificates
+                [...certificates]
                   .filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .sort((a, b) => (b.expiry || '').localeCompare(a.expiry || '') || (b.createdAt || 0) - (a.createdAt || 0))
                   .map(c => (
                     <div key={c.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
                       <div className="flex justify-between items-start gap-2">
@@ -1792,8 +1778,9 @@ export const ThingsView: React.FC<ThingsViewProps> = ({
                 .length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No records found.</div>
               ) : (
-                importantRecords
+                [...importantRecords]
                   .filter(ir => ir.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0))
                   .map(ir => (
                     <div key={ir.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
                       <div className="flex justify-between items-start gap-2">

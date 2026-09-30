@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Play, Pause, RotateCcw, Check, Sparkles, Volume2,
   VolumeX, Clock, Target, Bell, Plus, Trash2,
-  Upload, Music, Radio, CheckCircle2, Sliders, ArrowRight
+  Upload, Music, Radio, CheckCircle2, Sliders, ArrowRight,
+  Link2
 } from 'lucide-react';
-import { FocusSession, Task, Goal } from '../types';
+import { FocusSession, Task, Goal, Routine } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { alarmAudio, BUILTIN_RINGTONES } from '../lib/alarmAudio';
 import { alarmService, FocusAlarm } from '../lib/alarmService';
@@ -13,6 +14,7 @@ interface FocusViewProps {
   sessions: FocusSession[];
   tasks: Task[];
   goals: Goal[];
+  routines?: Routine[];
   onRefresh: () => void;
   onSuccess: (msg: string) => void;
 }
@@ -21,6 +23,7 @@ export const FocusView: React.FC<FocusViewProps> = ({
   sessions,
   tasks,
   goals,
+  routines = [],
   onRefresh,
   onSuccess
 }) => {
@@ -44,6 +47,9 @@ export const FocusView: React.FC<FocusViewProps> = ({
   const [newAlarmRingtone, setNewAlarmRingtone] = useState(alarmAudio.getDefaultRingtoneId());
   const [newAlarmDays, setNewAlarmDays] = useState<number[]>([1, 2, 3, 4, 5]); // Weekdays default
   const [isAddingAlarm, setIsAddingAlarm] = useState(false);
+  const [alarmTitleMode, setAlarmTitleMode] = useState<'routine' | 'manual'>('manual');
+  const [selectedRoutineId, setSelectedRoutineId] = useState<string>('');
+  const [availableRoutines, setAvailableRoutines] = useState<Routine[]>(routines || []);
 
   // Ringtone Studio States
   const [selectedDefaultRingtone, setSelectedDefaultRingtone] = useState(alarmAudio.getDefaultRingtoneId());
@@ -194,21 +200,69 @@ export const FocusView: React.FC<FocusViewProps> = ({
     e.target.value = '';
   };
 
+  // Sync available routines
+  useEffect(() => {
+    if (routines && routines.length > 0) {
+      setAvailableRoutines(routines);
+    } else {
+      storage.getAll<Routine>('routines').then(rts => {
+        if (rts && rts.length > 0) setAvailableRoutines(rts);
+      }).catch(() => {});
+    }
+  }, [routines]);
+
+  // Routine selection handler
+  const handleSelectRoutine = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const routineId = e.target.value;
+    setSelectedRoutineId(routineId);
+    if (!routineId) return;
+
+    const routine = availableRoutines.find(r => r.id === routineId);
+    if (routine) {
+      setNewAlarmLabel(routine.name);
+
+      // Auto-set time from routine start time or time
+      const rTime = routine.startTime || routine.time;
+      if (rTime) {
+        setNewAlarmTime(rTime);
+      }
+
+      // Auto-set repeat days based on routine cadence
+      if (routine.frequency === 'weekdays') {
+        setNewAlarmDays([1, 2, 3, 4, 5]);
+      } else if (routine.frequency === 'daily') {
+        setNewAlarmDays([0, 1, 2, 3, 4, 5, 6]);
+      } else if (routine.frequency === 'weekly') {
+        const currentDay = new Date().getDay();
+        setNewAlarmDays([currentDay]);
+      }
+    }
+  };
+
   // Add Alarm Handler
   const handleCreateAlarm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAlarmTime) return;
 
+    const matchedRoutine = selectedRoutineId
+      ? availableRoutines.find(r => r.id === selectedRoutineId)
+      : null;
+
     alarmService.addFocusAlarm({
       time: newAlarmTime,
-      label: newAlarmLabel.trim() || 'Focus Alarm',
+      label: newAlarmLabel.trim() || (matchedRoutine ? matchedRoutine.name : 'Focus Alarm'),
       ringtone: newAlarmRingtone,
       enabled: true,
-      days: newAlarmDays
+      days: newAlarmDays,
+      linkedRoutineId: selectedRoutineId || null,
+      linkedRoutineName: matchedRoutine ? matchedRoutine.name : null,
+      sourceType: selectedRoutineId ? 'routine' : 'manual'
     });
 
-    onSuccess(`⏰ Alarm scheduled for ${newAlarmTime}`);
+    onSuccess(`⏰ Alarm scheduled for ${newAlarmTime}${matchedRoutine ? ` linked with "${matchedRoutine.name}"` : ''}`);
     setNewAlarmLabel('');
+    setSelectedRoutineId('');
+    setAlarmTitleMode('manual');
     setIsAddingAlarm(false);
     refreshAlarms();
   };
@@ -617,16 +671,112 @@ export const FocusView: React.FC<FocusViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                    Alarm Title / Purpose
-                  </label>
-                  <input
-                    type="text"
-                    value={newAlarmLabel}
-                    onChange={e => setNewAlarmLabel(e.target.value)}
-                    placeholder="e.g. Morning Sprint, Standup, Medicine"
-                    className="mt-1 h-9 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
-                  />
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      Alarm Title / Purpose
+                    </label>
+                    {/* Mode Selector: Link Routine vs Manual */}
+                    <div className="flex items-center rounded-lg bg-slate-200/80 p-0.5 dark:bg-slate-700/80">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAlarmTitleMode('routine');
+                          if (!selectedRoutineId && availableRoutines.length > 0) {
+                            const r = availableRoutines[0];
+                            setSelectedRoutineId(r.id);
+                            setNewAlarmLabel(r.name);
+                            if (r.startTime || r.time) setNewAlarmTime(r.startTime || r.time || '08:00');
+                            if (r.frequency === 'weekdays') setNewAlarmDays([1, 2, 3, 4, 5]);
+                            else if (r.frequency === 'daily') setNewAlarmDays([0, 1, 2, 3, 4, 5, 6]);
+                          }
+                        }}
+                        className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold transition-all cursor-pointer ${
+                          alarmTitleMode === 'routine'
+                            ? 'bg-white text-indigo-600 shadow-2xs dark:bg-slate-900 dark:text-indigo-400'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        <Link2 className="h-3 w-3" />
+                        <span>Link Routine</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAlarmTitleMode('manual');
+                          setSelectedRoutineId('');
+                        }}
+                        className={`flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold transition-all cursor-pointer ${
+                          alarmTitleMode === 'manual'
+                            ? 'bg-white text-indigo-600 shadow-2xs dark:bg-slate-900 dark:text-indigo-400'
+                            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                        }`}
+                      >
+                        <span>Manual</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {alarmTitleMode === 'routine' ? (
+                    <div className="mt-1.5 space-y-2">
+                      {availableRoutines.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-slate-300 p-3 text-center text-xs text-slate-500 dark:border-slate-700">
+                          <span>No routines created yet in Routine menu. </span>
+                          <button
+                            type="button"
+                            onClick={() => setAlarmTitleMode('manual')}
+                            className="text-indigo-600 dark:text-indigo-400 font-bold underline cursor-pointer"
+                          >
+                            Switch to Manual Title
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="relative">
+                            <select
+                              value={selectedRoutineId}
+                              onChange={handleSelectRoutine}
+                              className="h-10 w-full rounded-xl border border-indigo-300 bg-indigo-50/40 px-3 text-xs font-semibold text-slate-900 focus:border-indigo-500 focus:outline-hidden dark:border-indigo-700 dark:bg-slate-900 dark:text-white cursor-pointer"
+                            >
+                              <option value="">-- Choose a Routine to Link --</option>
+                              {availableRoutines.map(r => (
+                                <option key={r.id} value={r.id}>
+                                  📅 {r.name} {r.startTime ? `(${r.startTime}${r.endTime ? ` - ${r.endTime}` : ''})` : ''} • {r.frequency}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                              <span>Alarm Label (editable):</span>
+                              {selectedRoutineId && (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                                  <Check className="h-3 w-3" /> Auto-synced from routine
+                                </span>
+                              )}
+                            </div>
+                            <input
+                              type="text"
+                              value={newAlarmLabel}
+                              onChange={e => setNewAlarmLabel(e.target.value)}
+                              placeholder="Routine alarm label"
+                              className="h-9 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      <input
+                        type="text"
+                        value={newAlarmLabel}
+                        onChange={e => setNewAlarmLabel(e.target.value)}
+                        placeholder="e.g. Morning Sprint, Standup, Medicine"
+                        className="h-9 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Repeat Day Selector */}
@@ -680,7 +830,7 @@ export const FocusView: React.FC<FocusViewProps> = ({
                   No alarms scheduled yet. Click "+ New Alarm" to create one.
                 </div>
               ) : (
-                alarmsList.map(alarm => {
+                [...alarmsList].sort((a, b) => (a.time || '').localeCompare(b.time || '')).map(alarm => {
                   const ringtoneMeta = BUILTIN_RINGTONES.find(r => r.id === alarm.ringtone) || {
                     name: alarm.ringtone === 'custom' ? 'Custom Ringtone' : 'Zen Bell'
                   };
@@ -702,8 +852,21 @@ export const FocusView: React.FC<FocusViewProps> = ({
                             {ringtoneMeta.name}
                           </span>
                         </div>
-                        <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                          {alarm.label}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                            {alarm.label}
+                          </span>
+                          {alarm.linkedRoutineName && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-1.5 py-0.5 text-[9px] font-bold text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/60">
+                              <Link2 className="h-2.5 w-2.5" />
+                              <span>Routine: {alarm.linkedRoutineName}</span>
+                            </span>
+                          )}
+                          {alarm.sourceType === 'manual' && !alarm.linkedRoutineName && (
+                            <span className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                              Manual
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] text-slate-400">
                           {alarm.days && alarm.days.length > 0

@@ -900,6 +900,7 @@ export default function App() {
                 sessions={focusSessions}
                 tasks={tasks}
                 goals={goals}
+                routines={routines}
                 onRefresh={loadAllData}
                 onSuccess={showToast}
               />

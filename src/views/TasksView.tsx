@@ -380,7 +380,25 @@ export const TasksView: React.FC<TasksViewProps> = ({
     onRefresh();
   };
 
-  const filteredTasks = tasks.filter(t => {
+  const priorityWeight: Record<string, number> = { High: 3, Medium: 2, Low: 1 };
+
+  const sortedTasks = [...tasks].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (a.dueAt && b.dueAt) {
+      const diff = a.dueAt.localeCompare(b.dueAt);
+      if (diff !== 0) return diff;
+    } else if (a.dueAt && !b.dueAt) {
+      return -1;
+    } else if (!a.dueAt && b.dueAt) {
+      return 1;
+    }
+    const pA = priorityWeight[a.priority] || 0;
+    const pB = priorityWeight[b.priority] || 0;
+    if (pA !== pB) return pB - pA;
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  const filteredTasks = sortedTasks.filter(t => {
     if (filterTab === 'today' && (t.dueAt !== today || t.done)) return false;
     if (filterTab === 'high' && (t.priority !== 'High' || t.done)) return false;
     if (filterTab === 'work' && (t.domain !== 'work' || t.done)) return false;
@@ -400,10 +418,17 @@ export const TasksView: React.FC<TasksViewProps> = ({
   const highCount = tasks.filter(t => t.priority === 'High' && !t.done).length;
 
   // Timeline classification
-  const overdueTasks = tasks.filter(t => !t.done && t.dueAt && t.dueAt < today);
-  const todayTasks = tasks.filter(t => !t.done && t.dueAt === today);
-  const upcomingTasks = tasks.filter(t => !t.done && t.dueAt && t.dueAt > today);
-  const unscheduledTasks = tasks.filter(t => !t.done && !t.dueAt);
+  const overdueTasks = sortedTasks
+    .filter(t => !t.done && t.dueAt && t.dueAt < today)
+    .sort((a, b) => (a.dueAt || '').localeCompare(b.dueAt || ''));
+  const todayTasks = sortedTasks
+    .filter(t => !t.done && t.dueAt === today)
+    .sort((a, b) => (priorityWeight[b.priority] || 0) - (priorityWeight[a.priority] || 0));
+  const upcomingTasks = sortedTasks
+    .filter(t => !t.done && t.dueAt && t.dueAt > today)
+    .sort((a, b) => (a.dueAt || '').localeCompare(b.dueAt || ''));
+  const unscheduledTasks = sortedTasks
+    .filter(t => !t.done && !t.dueAt);
 
   return (
     <div className="space-y-6">

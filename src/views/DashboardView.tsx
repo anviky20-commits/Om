@@ -48,8 +48,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenQuickCapture,
 }) => {
   const today = new Date().toISOString().slice(0, 10);
-  const openTasks = tasks.filter(t => !t.done);
-  const todayTasks = tasks.filter(t => (t.dueAt === today || t.date === today) && !t.done);
+  const priorityWeight: Record<string, number> = { High: 3, Medium: 2, Low: 1 };
+  const sortedTasks = [...tasks]
+    .filter(t => !t.done)
+    .sort((a, b) => {
+      if (a.dueAt && b.dueAt) {
+        const d = a.dueAt.localeCompare(b.dueAt);
+        if (d !== 0) return d;
+      } else if (a.dueAt) return -1;
+      else if (b.dueAt) return 1;
+      const pA = priorityWeight[a.priority] || 0;
+      const pB = priorityWeight[b.priority] || 0;
+      if (pA !== pB) return pB - pA;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+  const openTasks = sortedTasks;
+  const todayTasks = sortedTasks.filter(t => (t.dueAt === today || t.date === today));
 
   // Financial calculations
   let income = 0;
@@ -68,7 +82,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const netCashFlow = operatingCashFlow - investment - loanRepay;
   const liquidCash = accounts.reduce((sum, a) => sum + (Number(a.balance) || 0), 0);
   const todayHabitLogs = habitLogs.filter(l => l.date === today);
-  const activeReminders = reminders.filter(r => r.status !== 'done').slice(0, 5);
+  const activeReminders = [...reminders]
+    .filter(r => r.status !== 'done')
+    .sort((a, b) => (a.dueAt || '').localeCompare(b.dueAt || '') || (b.createdAt || 0) - (a.createdAt || 0))
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -374,7 +391,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               Recent Activity
             </div>
-            {finance.slice().reverse().slice(0, 3).map(tx => (
+            {[...finance].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 3).map(tx => (
               <div
                 key={tx.id}
                 className="flex items-center justify-between text-xs sm:text-sm py-1.5 border-b border-slate-50 dark:border-slate-800/40 last:border-0"

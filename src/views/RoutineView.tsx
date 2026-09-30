@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import {
   Repeat, Clock, Trash2, CheckCircle2,
-  Flame, Check
+  Flame, Check, Bell
 } from 'lucide-react';
 import { Routine, Habit, HabitLog } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { alarmService } from '../lib/alarmService';
 
 interface RoutineViewProps {
   routines: Routine[];
@@ -143,6 +144,27 @@ export const RoutineView: React.FC<RoutineViewProps> = ({
     } catch (err) {
       console.error('Failed to delete', err);
     }
+  };
+
+  const handleSetAlarmFromRoutine = (routine: Routine) => {
+    const alarmTime = routine.startTime || routine.time || '07:00';
+    let days = [1, 2, 3, 4, 5];
+    if (routine.frequency === 'daily') days = [0, 1, 2, 3, 4, 5, 6];
+    else if (routine.frequency === 'weekly') days = [new Date().getDay()];
+
+    alarmService.addFocusAlarm({
+      time: alarmTime,
+      label: routine.name,
+      ringtone: 'zen_bell',
+      enabled: true,
+      days,
+      linkedRoutineId: routine.id,
+      linkedRoutineName: routine.name,
+      sourceType: 'routine'
+    });
+
+    onSuccess(`⏰ Alarm scheduled for "${routine.name}" at ${alarmTime}!`);
+    onRefresh();
   };
 
   // Compute streak for a habit
@@ -404,7 +426,7 @@ export const RoutineView: React.FC<RoutineViewProps> = ({
               No routine time blocks defined. Add one above.
             </div>
           ) : (
-            routines.map(r => (
+            [...routines].sort((a, b) => (a.startTime || a.time || '').localeCompare(b.startTime || b.time || '')).map(r => (
               <div
                 key={r.id}
                 className="relative rounded-xl border border-slate-100 p-4 transition-all hover:border-slate-200 dark:border-slate-800 dark:hover:border-slate-700 flex flex-col justify-between"
@@ -414,14 +436,24 @@ export const RoutineView: React.FC<RoutineViewProps> = ({
                     <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md">
                       {r.startTime || r.time} {r.endTime ? `→ ${r.endTime}` : ''}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteRoutine(r)}
-                      className="text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
-                      title="Delete block"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleSetAlarmFromRoutine(r)}
+                        className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-1 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
+                        title="Schedule Alarm for this routine"
+                      >
+                        <Bell className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRoutine(r)}
+                        className="text-slate-400 hover:text-rose-500 transition-colors p-1 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                        title="Delete block"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mt-2 text-xs sm:text-sm font-bold text-slate-900 dark:text-white">

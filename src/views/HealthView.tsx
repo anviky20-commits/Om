@@ -468,7 +468,7 @@ export const HealthView: React.FC<HealthViewProps> = ({
               {measurements.length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No workout records logged yet.</div>
               ) : (
-                measurements.slice().reverse().map(m => (
+                [...measurements].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(m => (
                   <div key={m.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors flex justify-between items-center gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="font-bold text-slate-900 dark:text-white truncate">{m.exercise || 'Daily Activity'}</div>
@@ -619,7 +619,10 @@ export const HealthView: React.FC<HealthViewProps> = ({
                   ...sleepRecords.map(s => ({ type: 'Sleep', text: `${s.hours} hours`, date: s.date, id: s.id, store: 'sleepRecords' as const, raw: s })),
                   ...waterRecords.map(w => ({ type: 'Water', text: `${w.amount} ml`, date: w.date, id: w.id, store: 'waterRecords' as const, raw: w })),
                   ...nutritionRecords.map(n => ({ type: 'Nutrition', text: `${n.calories ? `${n.calories} kcal` : ''} ${n.note || ''}`, date: n.date, id: n.id, store: 'nutritionRecords' as const, raw: n }))
-                ].slice(-40).reverse().map(item => (
+                ]
+                  .sort((a, b) => (b.date || '').localeCompare(a.date || '') || ((b.raw as any)?.createdAt || 0) - ((a.raw as any)?.createdAt || 0))
+                  .slice(0, 40)
+                  .map(item => (
                   <div key={item.id} className="rounded-2xl border border-slate-100 p-3 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors flex justify-between items-center gap-2">
                     <div className="min-w-0 flex-1">
                       <span className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold mr-2 ${
@@ -730,7 +733,7 @@ export const HealthView: React.FC<HealthViewProps> = ({
                 {appointments.length === 0 ? (
                   <div className="py-8 text-center text-xs text-slate-400">No medical appointments logged.</div>
                 ) : (
-                  appointments.map(a => (
+                  [...appointments].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(a => (
                     <div key={a.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors flex justify-between items-center gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="font-bold text-slate-900 dark:text-white truncate">{a.title}</div>
@@ -773,7 +776,7 @@ export const HealthView: React.FC<HealthViewProps> = ({
                 {healthNotes.length === 0 ? (
                   <div className="py-8 text-center text-xs text-slate-400">No observation notes logged.</div>
                 ) : (
-                  healthNotes.map(n => (
+                  [...healthNotes].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(n => (
                     <div key={n.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors flex justify-between items-start gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="text-slate-800 dark:text-slate-200 leading-relaxed">{n.text}</div>

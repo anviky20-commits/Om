@@ -137,6 +137,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           }
         });
 
+        hits.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         setResults(hits.slice(0, 50));
       } catch (err) {
         console.error('Search error', err);

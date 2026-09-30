@@ -181,7 +181,7 @@ export const SpiritualView: React.FC<SpiritualViewProps> = ({
           </form>
 
           <div className="mt-4 space-y-2.5 max-h-80 overflow-y-auto">
-            {values.map(v => (
+            {[...values].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(v => (
               <div key={v.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800">
                 <div className="flex justify-between items-start">
                   <div className="font-bold text-slate-900 dark:text-white">{v.title}</div>
@@ -242,7 +242,7 @@ export const SpiritualView: React.FC<SpiritualViewProps> = ({
                 No daily practices yet. Add one above to automatically track it in your habits.
               </p>
             ) : (
-              practices.map(p => (
+              [...practices].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(p => (
                 <div
                   key={p.id}
                   tabIndex={0}
@@ -308,7 +308,7 @@ export const SpiritualView: React.FC<SpiritualViewProps> = ({
           </form>
 
           <div className="mt-4 space-y-2 max-h-80 overflow-y-auto">
-            {commitments.map(c => (
+            {[...commitments].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(c => (
               <div key={c.id} className="rounded-2xl border border-slate-100 p-3.5 text-xs dark:border-slate-800">
                 <div className="flex justify-between items-start">
                   <div className="font-medium text-slate-800 dark:text-slate-200 italic leading-relaxed">

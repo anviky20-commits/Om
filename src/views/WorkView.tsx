@@ -358,7 +358,7 @@ export const WorkView: React.FC<WorkViewProps> = ({
               {projects.length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No work projects created yet.</div>
               ) : (
-                projects.map(p => (
+                [...projects].sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0)).map(p => (
                   <div key={p.id} className="rounded-2xl border border-slate-100 p-4 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
                     <div className="flex justify-between items-start gap-2">
                       <div className="min-w-0 flex-1">
@@ -463,7 +463,7 @@ export const WorkView: React.FC<WorkViewProps> = ({
               {learningItems.length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No learning tracks added yet.</div>
               ) : (
-                learningItems.map(l => (
+                [...learningItems].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(l => (
                   <div key={l.id} className="rounded-2xl border border-slate-100 p-4 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
                     <div className="flex justify-between items-center gap-2">
                       <span className="font-bold text-slate-900 dark:text-white text-sm truncate">{l.title}</span>
@@ -559,7 +559,7 @@ export const WorkView: React.FC<WorkViewProps> = ({
               {skills.length === 0 ? (
                 <div className="col-span-full py-12 text-center text-xs text-slate-400">No skill competencies recorded.</div>
               ) : (
-                skills.map(s => (
+                [...skills].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).map(s => (
                   <div key={s.id} className="rounded-2xl border border-slate-100 p-4 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors flex justify-between items-start">
                     <div>
                       <div className="font-bold text-slate-900 dark:text-white text-sm">{s.name}</div>
@@ -650,7 +650,7 @@ export const WorkView: React.FC<WorkViewProps> = ({
               {meetings.length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">No scheduled meetings.</div>
               ) : (
-                meetings.map(m => (
+                [...meetings].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(m => (
                   <div key={m.id} className="rounded-2xl border border-slate-100 p-4 text-xs dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 transition-colors flex justify-between items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="font-bold text-slate-900 dark:text-white text-sm truncate">{m.title}</div>

@@ -372,12 +372,28 @@ class StorageEngine {
       const store = tx.objectStore(storeName);
       const req = store.getAll();
       req.onsuccess = () => {
-        const rows = (req.result || []) as any[];
-        if (!this.activeProfileId || !ENTITY_STORES.includes(storeName)) {
-          resolve(rows as T[]);
-          return;
+        let rows = (req.result || []) as any[];
+        if (this.activeProfileId && ENTITY_STORES.includes(storeName)) {
+          rows = rows.filter(row => row.profileId === this.activeProfileId);
         }
-        resolve(rows.filter(row => row.profileId === this.activeProfileId) as T[]);
+        // Universal chronological sequencing:
+        // Prioritize explicit date desc, then updatedAt desc, then createdAt desc
+        rows.sort((a, b) => {
+          if (a?.date && b?.date && a.date !== b.date) {
+            return String(b.date).localeCompare(String(a.date));
+          }
+          if (a?.dueAt && b?.dueAt && a.dueAt !== b.dueAt) {
+            return String(a.dueAt).localeCompare(String(b.dueAt));
+          }
+          if (a?.updatedAt && b?.updatedAt && a.updatedAt !== b.updatedAt) {
+            return Number(b.updatedAt) - Number(a.updatedAt);
+          }
+          if (a?.createdAt && b?.createdAt && a.createdAt !== b.createdAt) {
+            return Number(b.createdAt) - Number(a.createdAt);
+          }
+          return 0;
+        });
+        resolve(rows as T[]);
       };
       req.onerror = () => reject(req.error);
     });

@@ -203,7 +203,7 @@ export const PeopleView: React.FC<PeopleViewProps> = ({
                   No contacts recorded yet. Add your first connection on the left.
                 </div>
               ) : (
-                people.map(p => {
+                [...people].sort((a, b) => (a.name || '').localeCompare(b.name || '') || (b.createdAt || 0) - (a.createdAt || 0)).map(p => {
                   const pInteractions = interactions.filter(i => i.personId === p.id);
                   return (
                     <div key={p.id} className="rounded-xl border border-slate-100 p-3.5 text-xs dark:border-slate-800">

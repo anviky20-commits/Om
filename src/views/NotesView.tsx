@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Search, Trash2, Edit3,
-  Star, Copy, Check, Download, Pin, Filter, X,
-  Folder, BookOpen, Sparkles, Volume2
+  Star, Copy, Check, Download, Pin, X,
+  Folder, BookOpen, Sparkles, Volume2, Plus,
+  ChevronDown, Hash, Calendar, CheckCircle2, Bookmark
 } from 'lucide-react';
 import { Note } from '../types';
 import { storage, generateUUID } from '../lib/storage';
@@ -88,7 +89,6 @@ export const NotesView: React.FC<NotesViewProps> = ({
 
   const formRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const richEditorRef = useRef<HTMLDivElement>(null);
 
   // Keep all categories synced with unique ones across existing notes
   useEffect(() => {
@@ -97,42 +97,48 @@ export const NotesView: React.FC<NotesViewProps> = ({
     setAllCategories(combined);
   }, [categories, notes]);
 
-  const themePalettes: Record<string, { label: string; swatch: string; cardClass: string; dotClass: string }> = {
+  const themePalettes: Record<string, { label: string; swatch: string; cardClass: string; dotClass: string; spineClass: string }> = {
     slate: {
       label: 'Classic Slate',
       swatch: '#94a3b8',
       cardClass: 'bg-white border-slate-200/90 dark:bg-slate-900/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700',
-      dotClass: 'bg-slate-400'
+      dotClass: 'bg-slate-400',
+      spineClass: 'bg-slate-400 dark:bg-slate-600'
     },
     amber: {
-      label: 'Soft Amber',
+      label: 'Warm Amber',
       swatch: '#f59e0b',
-      cardClass: 'bg-amber-50/70 border-amber-200/80 dark:bg-amber-950/20 dark:border-amber-800/40 hover:border-amber-300 dark:hover:border-amber-700/60',
-      dotClass: 'bg-amber-500'
+      cardClass: 'bg-amber-50/40 border-amber-200/70 dark:bg-amber-950/20 dark:border-amber-800/40 hover:border-amber-300 dark:hover:border-amber-700/60',
+      dotClass: 'bg-amber-500',
+      spineClass: 'bg-amber-500'
     },
     emerald: {
-      label: 'Soft Emerald',
+      label: 'Sage Emerald',
       swatch: '#10b981',
-      cardClass: 'bg-emerald-50/70 border-emerald-200/80 dark:bg-emerald-950/20 dark:border-emerald-800/40 hover:border-emerald-300 dark:hover:border-emerald-700/60',
-      dotClass: 'bg-emerald-500'
+      cardClass: 'bg-emerald-50/40 border-emerald-200/70 dark:bg-emerald-950/20 dark:border-emerald-800/40 hover:border-emerald-300 dark:hover:border-emerald-700/60',
+      dotClass: 'bg-emerald-500',
+      spineClass: 'bg-emerald-500'
     },
     sky: {
-      label: 'Soft Sky',
+      label: 'Ocean Sky',
       swatch: '#0ea5e9',
-      cardClass: 'bg-sky-50/70 border-sky-200/80 dark:bg-sky-950/20 dark:border-sky-800/40 hover:border-sky-300 dark:hover:border-sky-700/60',
-      dotClass: 'bg-sky-500'
+      cardClass: 'bg-sky-50/40 border-sky-200/70 dark:bg-sky-950/20 dark:border-sky-800/40 hover:border-sky-300 dark:hover:border-sky-700/60',
+      dotClass: 'bg-sky-500',
+      spineClass: 'bg-sky-500'
     },
     violet: {
-      label: 'Soft Violet',
+      label: 'Royal Violet',
       swatch: '#8b5cf6',
-      cardClass: 'bg-purple-50/70 border-purple-200/80 dark:bg-purple-950/20 dark:border-purple-800/40 hover:border-purple-300 dark:hover:border-purple-700/60',
-      dotClass: 'bg-purple-500'
+      cardClass: 'bg-purple-50/40 border-purple-200/70 dark:bg-purple-950/20 dark:border-purple-800/40 hover:border-purple-300 dark:hover:border-purple-700/60',
+      dotClass: 'bg-purple-500',
+      spineClass: 'bg-purple-500'
     },
     rose: {
-      label: 'Soft Rose',
+      label: 'Velvet Rose',
       swatch: '#f43f5e',
-      cardClass: 'bg-rose-50/70 border-rose-200/80 dark:bg-rose-950/20 dark:border-rose-800/40 hover:border-rose-300 dark:hover:border-rose-700/60',
-      dotClass: 'bg-rose-500'
+      cardClass: 'bg-rose-50/40 border-rose-200/70 dark:bg-rose-950/20 dark:border-rose-800/40 hover:border-rose-300 dark:hover:border-rose-700/60',
+      dotClass: 'bg-rose-500',
+      spineClass: 'bg-rose-500'
     }
   };
 
@@ -399,31 +405,47 @@ export const NotesView: React.FC<NotesViewProps> = ({
   }).sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
-    return (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt);
+    if (a.date && b.date && a.date !== b.date) {
+      return b.date.localeCompare(a.date);
+    }
+    const bTime = b.updatedAt || b.createdAt || 0;
+    const aTime = a.updatedAt || a.createdAt || 0;
+    return bTime - aTime;
   });
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      {/* ========================================================================= */}
+      {/* SECTION HEADER: Editorial, Clean, Anti-slop                              */}
+      {/* ========================================================================= */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200/70 dark:border-slate-800">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl flex items-center gap-2">
-            <span>Notes & Notebooks</span>
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Organized knowledge vaults, rich text formatting, color palettes, attachments, and markdown export.
-          </p>
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+              <BookOpen className="h-4 w-4" />
+            </span>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
+              Notebooks & Knowledge Vault
+            </h1>
+          </div>
+          <div className="mt-1 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span>{notes.length} total {notes.length === 1 ? 'note' : 'notes'}</span>
+            <span aria-hidden="true">·</span>
+            <span>{allCategories.length} notebooks</span>
+            <span aria-hidden="true">·</span>
+            <span>Markdown export & Rich formatting</span>
+          </div>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => setIsAddingCategory(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 shadow-2xs transition-colors cursor-pointer"
           >
-            <Folder className="h-3.5 w-3.5 text-indigo-500" />
-            <span>+ New Notebook</span>
+            <Folder className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>New Notebook</span>
           </button>
         </div>
       </div>
@@ -432,21 +454,21 @@ export const NotesView: React.FC<NotesViewProps> = ({
       {isAddingCategory && (
         <form
           onSubmit={handleAddNewNotebook}
-          className="flex items-center gap-2 p-3 bg-indigo-50/70 border border-indigo-200 rounded-2xl dark:bg-indigo-950/30 dark:border-indigo-800/60"
+          className="flex items-center gap-2 p-3 bg-indigo-50/70 border border-indigo-200/80 rounded-2xl dark:bg-indigo-950/30 dark:border-indigo-800/60 shadow-xs animate-in fade-in duration-150"
         >
-          <BookOpen className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+          <BookOpen className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0 ml-1" />
           <input
             type="text"
             required
             autoFocus
-            placeholder="Enter notebook title (e.g. Research, Architecture, Startup Ideas)..."
+            placeholder="Notebook title (e.g. Research, System Design, Ideas)..."
             value={newCategoryName}
             onChange={e => setNewCategoryName(e.target.value)}
-            className="flex-1 h-8 rounded-lg border border-indigo-200 bg-white px-3 text-xs dark:border-indigo-700 dark:bg-slate-800 dark:text-white"
+            className="flex-1 h-8.5 rounded-xl border border-indigo-200 bg-white px-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-indigo-700 dark:bg-slate-800 dark:text-white"
           />
           <button
             type="submit"
-            className="h-8 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white hover:bg-indigo-500 cursor-pointer"
+            className="h-8.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-semibold text-white hover:bg-indigo-500 shadow-xs cursor-pointer transition-colors"
           >
             Create Notebook
           </button>
@@ -456,72 +478,90 @@ export const NotesView: React.FC<NotesViewProps> = ({
               setIsAddingCategory(false);
               setNewCategoryName('');
             }}
-            className="h-8 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
+            className="h-8.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 cursor-pointer transition-colors"
           >
             Cancel
           </button>
         </form>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Note Editor Form (5 cols) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+        {/* ========================================================================= */}
+        {/* LEFT PANEL: LUXURY NOTEBOOK EDITOR (5 cols)                                */}
+        {/* ========================================================================= */}
         <div
           ref={formRef}
-          className={`lg:col-span-5 rounded-2xl border transition-all ${
+          className={`lg:col-span-5 rounded-3xl border transition-all ${
             editingNoteId
-              ? 'border-indigo-400 bg-indigo-50/20 dark:border-indigo-500/50 dark:bg-indigo-950/20 ring-2 ring-indigo-500/20'
-              : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
-          } p-5 sm:p-6 shadow-xs`}
+              ? 'border-indigo-400/90 bg-indigo-50/20 dark:border-indigo-500/50 dark:bg-indigo-950/20 ring-2 ring-indigo-500/20 shadow-md'
+              : 'border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-900 shadow-sm'
+          } p-5 sm:p-6 space-y-4`}
         >
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 dark:border-slate-800">
-            <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 text-xs">
-                📝
+          {/* Editor Header */}
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                ✍️
               </span>
-              <span>{editingNoteId ? 'Edit Note (Inline)' : 'Create New Note'}</span>
-            </h2>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                  {editingNoteId ? 'Edit Note' : 'New Note'}
+                </h2>
+                <p className="text-[11px] text-slate-400">
+                  {editingNoteId ? 'Saving changes will update the existing entry' : 'Write and capture into your personal vault'}
+                </p>
+              </div>
+            </div>
             {editingNoteId && (
               <button
                 type="button"
                 onClick={resetForm}
-                className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                className="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
               >
                 Cancel Edit
               </button>
             )}
           </div>
 
-          <form onSubmit={handleSaveNote} className="mt-4 space-y-3.5">
+          <form onSubmit={handleSaveNote} className="space-y-4">
+            {/* Note Title Input */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                Note Title
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Note Title
+                </label>
+                <span className="text-[10px] text-slate-400">Required</span>
+              </div>
               <input
                 ref={titleInputRef}
                 type="text"
                 required
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="Give your note a title..."
-                className="mt-1 h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                placeholder="Give your note an inspiring title..."
+                className="h-10 w-full rounded-xl border border-slate-200/90 dark:border-slate-700/90 bg-slate-50/60 dark:bg-slate-800/50 px-3.5 text-xs sm:text-sm font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:text-white transition-all shadow-2xs"
               />
             </div>
 
+            {/* Notebook & Tags Row */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Notebook
                 </label>
-                <select
-                  value={category}
-                  onChange={e => setCategory(e.target.value)}
-                  className="mt-1 h-9 w-full rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                >
-                  {allCategories.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                  <option value="__custom">+ Custom Notebook...</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={category}
+                    onChange={e => setCategory(e.target.value)}
+                    className="h-9 w-full rounded-xl border border-slate-200/90 dark:border-slate-700/90 bg-slate-50/60 dark:bg-slate-800/50 pl-3 pr-7 text-xs font-medium text-slate-800 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:text-slate-200 transition-all appearance-none cursor-pointer shadow-2xs"
+                  >
+                    {allCategories.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                    <option value="__custom">+ Custom Notebook...</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-3 h-3 w-3 text-slate-400" />
+                </div>
                 {category === '__custom' && (
                   <input
                     type="text"
@@ -529,72 +569,87 @@ export const NotesView: React.FC<NotesViewProps> = ({
                     placeholder="Enter notebook name"
                     value={customCategoryInput}
                     onChange={e => setCustomCategoryInput(e.target.value)}
-                    className="mt-1.5 h-8 w-full rounded-lg border border-indigo-200 px-2.5 text-xs dark:border-indigo-700 dark:bg-slate-800 dark:text-white"
+                    className="mt-1.5 h-8.5 w-full rounded-xl border border-indigo-200 px-3 text-xs dark:border-indigo-700 dark:bg-slate-800 dark:text-white"
                   />
                 )}
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  Tags (comma separated)
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Tags
                 </label>
-                <input
-                  type="text"
-                  value={tags}
-                  onChange={e => setTags(e.target.value)}
-                  placeholder="ideas, architecture"
-                  className="mt-1 h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                />
-              </div>
-            </div>
-
-            {/* Note Theme Palettes */}
-            <div>
-              <div className="flex items-center justify-between">
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  Card Theme Palette
-                </label>
-                <label className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 cursor-pointer">
+                <div className="relative">
                   <input
-                    type="checkbox"
-                    checked={isPinned}
-                    onChange={e => setIsPinned(e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-0 cursor-pointer"
+                    type="text"
+                    value={tags}
+                    onChange={e => setTags(e.target.value)}
+                    placeholder="ideas, architecture"
+                    className="h-9 w-full rounded-xl border border-slate-200/90 dark:border-slate-700/90 bg-slate-50/60 dark:bg-slate-800/50 pl-7 pr-3 text-xs font-medium text-slate-800 focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:text-slate-200 transition-all shadow-2xs"
                   />
-                  <span>Pin to top</span>
-                </label>
-              </div>
-              <div className="mt-1.5 flex items-center gap-2">
-                {Object.entries(themePalettes).map(([k, t]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setColorTheme(k)}
-                    className={`group relative flex h-7 w-7 items-center justify-center rounded-xl border transition-all cursor-pointer ${
-                      colorTheme === k
-                        ? 'border-indigo-600 ring-2 ring-indigo-500/30 scale-105'
-                        : 'border-slate-200 dark:border-slate-700 hover:scale-105'
-                    }`}
-                    title={t.label}
-                  >
-                    <span
-                      className="h-4 w-4 rounded-lg shadow-xs"
-                      style={{ backgroundColor: t.swatch }}
-                    />
-                  </button>
-                ))}
+                  <Hash className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                </div>
               </div>
             </div>
 
-            {/* Note Content Writing Canvas */}
-            <div className="space-y-2">
+            {/* Note Theme Palettes & Pin to top */}
+            <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Notebook Spine & Theme
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsPinned(!isPinned)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    isPinned
+                      ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300 ring-1 ring-amber-400/50'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                  }`}
+                >
+                  <Star className={`h-3 w-3 ${isPinned ? 'fill-amber-500 text-amber-500' : ''}`} />
+                  <span>{isPinned ? 'Pinned to top' : 'Pin to top'}</span>
+                </button>
+              </div>
+
+              {/* Refined Color Swatches */}
+              <div className="flex items-center gap-2 pt-0.5">
+                {Object.entries(themePalettes).map(([k, t]) => {
+                  const isSelected = colorTheme === k;
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setColorTheme(k)}
+                      className={`group relative flex h-7.5 w-7.5 items-center justify-center rounded-xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-indigo-600 ring-2 ring-indigo-500/25 scale-105 shadow-xs'
+                          : 'border-slate-200/90 dark:border-slate-700 hover:scale-105 shadow-2xs'
+                      }`}
+                      title={t.label}
+                    >
+                      <span
+                        className="h-4.5 w-4.5 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: t.swatch }}
+                      >
+                        {isSelected && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-white shadow-xs" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Note Writing Canvas */}
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
                   <Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                  <span>Notebook Canvas & Rich Formatting</span>
+                  <span>Notebook Canvas</span>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
-                  <span>Tables · Custom Bullets · 24+ Colors</span>
+                <div className="text-[10px] text-slate-400 font-mono">
+                  Rich formatting · Tables · Bullets
                 </div>
               </div>
               <NoteRichEditor
@@ -603,14 +658,14 @@ export const NotesView: React.FC<NotesViewProps> = ({
                   setEditorHtml(html);
                   setEditorText(text);
                 }}
-                placeholder="Start typing your note... Use custom bullets (🎯, ⚡), tables, 24+ colors, and paragraph justify (Ctrl+J)."
+                placeholder=""
                 minHeight="min-h-[220px]"
                 maxHeight="max-h-[460px]"
               />
             </div>
 
             {/* Attached Files Section */}
-            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+            <div>
               <AttachmentUploader
                 attachments={attachments}
                 onChange={setAttachments}
@@ -618,54 +673,77 @@ export const NotesView: React.FC<NotesViewProps> = ({
               />
             </div>
 
+            {/* Primary Action Button */}
             <button
               type="submit"
-              className="w-full rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 active:scale-98 transition-transform cursor-pointer"
+              className="w-full rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 active:scale-[0.99] py-2.5 text-xs font-semibold text-white shadow-sm hover:shadow-md hover:shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              {editingNoteId ? 'Update Note' : '＋ Save Note to Vault'}
+              {editingNoteId ? (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Update Note</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Save Note to Vault</span>
+                </>
+              )}
             </button>
           </form>
         </div>
 
-        {/* Notes Grid & Filter Bar (7 cols) */}
+        {/* ========================================================================= */}
+        {/* RIGHT PANEL: NOTEBOOKS DIRECTORY & CARDS (7 cols)                         */}
+        {/* ========================================================================= */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800/80 dark:bg-slate-900 space-y-3.5">
+          <div className="rounded-3xl border border-slate-200/90 bg-white p-4 sm:p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-3.5">
             {/* Search Input */}
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search notes by title, notebook, tags, or content..."
-                className="h-9 w-full rounded-xl border border-slate-200 pl-9 pr-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                className="h-9.5 w-full rounded-xl border border-slate-200/90 pl-10 pr-9 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white transition-all shadow-2xs"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
-            {/* Notebook Filters */}
-            <div className="flex overflow-x-auto pb-1 gap-2 no-scrollbar">
+            {/* Notebook Filter Pills */}
+            <div className="flex overflow-x-auto pb-1 gap-1.5 no-scrollbar">
               <button
                 type="button"
                 onClick={() => setSelectedCategory('all')}
-                className={`rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer ${
+                className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   selectedCategory === 'all'
                     ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
                 }`}
               >
                 All Notebooks ({notes.length})
               </button>
               {allCategories.map(cat => {
                 const count = notes.filter(n => n.category === cat).length;
+                const isActive = selectedCategory === cat;
                 return (
                   <button
                     key={cat}
                     type="button"
                     onClick={() => setSelectedCategory(cat)}
-                    className={`rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer ${
-                      selectedCategory === cat
+                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                      isActive
                         ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700/80'
                     }`}
                   >
                     {cat} ({count})
@@ -678,8 +756,14 @@ export const NotesView: React.FC<NotesViewProps> = ({
           {/* Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {filteredNotes.length === 0 ? (
-              <div className="col-span-full py-16 text-center text-xs text-slate-400">
-                No notes found matching your search or filters. Create your first note.
+              <div className="col-span-full py-16 text-center rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 p-8 space-y-2">
+                <BookOpen className="h-8 w-8 text-slate-300 dark:text-slate-700 mx-auto" />
+                <div className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  No notes found matching your criteria
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  Write your first note using the notebook canvas on the left.
+                </div>
               </div>
             ) : (
               filteredNotes.map(n => {
@@ -688,28 +772,32 @@ export const NotesView: React.FC<NotesViewProps> = ({
                   <div
                     key={n.id}
                     onClick={() => setViewingNote(n)}
-                    className={`group relative rounded-2xl border p-4 shadow-xs transition-all card-hover flex flex-col justify-between cursor-pointer ${theme.cardClass}`}
+                    className={`group relative rounded-2xl border p-4 shadow-xs transition-all card-hover flex flex-col justify-between cursor-pointer overflow-hidden ${theme.cardClass}`}
                   >
+                    {/* Top Spine Stripe for tactile notebook feel */}
+                    <div className={`absolute top-0 left-0 right-0 h-1 ${theme.spineClass}`} />
+
                     <div>
                       {/* Top Header */}
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-2 pt-0.5">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             {n.pinned && (
-                              <Pin className="h-3 w-3 text-amber-500 fill-current shrink-0" />
+                              <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />
                             )}
                             <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
                               {n.title}
                             </h3>
                           </div>
-                          <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
-                            <span className="font-semibold text-indigo-600 dark:text-indigo-400 truncate max-w-[100px]">{n.category}</span>
-                            <span>·</span>
+                          {/* Zero-Pill Clean Metadata */}
+                          <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                            <span className="font-semibold text-indigo-600 dark:text-indigo-400 truncate max-w-[110px]">{n.category}</span>
+                            <span aria-hidden="true">·</span>
                             <span>{n.date}</span>
                           </div>
                         </div>
 
-                        {/* Action buttons (Edit, Delete, Pin, Copy) */}
+                        {/* Action buttons (Pin, Copy, Export, Read Aloud, Edit, Delete) */}
                         <div
                           className="flex items-center gap-0.5 shrink-0"
                           onClick={e => e.stopPropagation()}
@@ -717,15 +805,15 @@ export const NotesView: React.FC<NotesViewProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleTogglePin(n, e)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50/50 dark:hover:bg-amber-950/30 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-amber-50/60 dark:hover:bg-amber-950/30 transition-colors"
                             title={n.pinned ? 'Unpin note' : 'Pin note to top'}
                           >
-                            <Star className={`h-3.5 w-3.5 ${n.pinned ? 'text-amber-500 fill-current' : ''}`} />
+                            <Star className={`h-3.5 w-3.5 ${n.pinned ? 'text-amber-500 fill-amber-500' : ''}`} />
                           </button>
                           <button
                             type="button"
                             onClick={(e) => handleCopyNote(n, e)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30 transition-colors"
                             title="Copy note text"
                           >
                             {copiedId === n.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
@@ -733,7 +821,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
                           <button
                             type="button"
                             onClick={(e) => handleExportNote(n, e)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30 transition-colors"
                             title="Export markdown"
                           >
                             <Download className="h-3.5 w-3.5" />
@@ -761,7 +849,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
                               e.stopPropagation();
                               handleOpenEditModal(n);
                             }}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-slate-400 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300 transition-colors cursor-pointer"
                             title="Edit note"
                             aria-label="Edit note"
                           >
@@ -783,11 +871,11 @@ export const NotesView: React.FC<NotesViewProps> = ({
 
                       {/* Content Preview */}
                       <div 
-                        className="mt-2.5 text-xs text-slate-700 dark:text-slate-300 max-h-36 overflow-hidden line-clamp-4 leading-relaxed [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_blockquote]:italic [&_blockquote]:pl-2 [&_blockquote]:border-l-2 [&_blockquote]:border-indigo-400 [&_table]:w-full [&_table]:border-collapse [&_table]:text-[10px] [&_th]:border [&_th]:border-slate-300 dark:[&_th]:border-slate-700 [&_th]:p-1 [&_td]:border [&_td]:border-slate-300 dark:[&_td]:border-slate-700 [&_td]:p-1"
+                        className="mt-2.5 text-xs text-slate-600 dark:text-slate-300 max-h-36 overflow-hidden line-clamp-4 leading-relaxed [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_blockquote]:italic [&_blockquote]:pl-2 [&_blockquote]:border-l-2 [&_blockquote]:border-indigo-400 [&_table]:w-full [&_table]:border-collapse [&_table]:text-[10px] [&_th]:border [&_th]:border-slate-300 dark:[&_th]:border-slate-700 [&_th]:p-1 [&_td]:border [&_td]:border-slate-300 dark:[&_td]:border-slate-700 [&_td]:p-1"
                         dangerouslySetInnerHTML={{ __html: n.html || (n.body ? n.body.replace(/\n/g, '<br/>') : '') }}
                       />
 
-                      {/* Attached Files indicator / chips */}
+                      {/* Attached Files indicator */}
                       {n.attachments && n.attachments.length > 0 && (
                         <div className="mt-2.5 pt-1.5 border-t border-black/5 dark:border-white/5">
                           <AttachmentViewer attachments={n.attachments} compact={true} />
@@ -801,7 +889,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
                         {n.tags.split(',').map(tag => (
                           <span
                             key={tag}
-                            className="inline-flex items-center rounded-md bg-white/60 dark:bg-slate-800/60 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 dark:text-slate-300"
+                            className="inline-flex items-center rounded-md bg-white/70 dark:bg-slate-800/70 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 dark:text-slate-300"
                           >
                             #{tag.trim()}
                           </span>
@@ -816,7 +904,9 @@ export const NotesView: React.FC<NotesViewProps> = ({
         </div>
       </div>
 
-      {/* DEDICATED EDIT NOTE MODAL */}
+      {/* ========================================================================= */}
+      {/* DEDICATED EDIT NOTE MODAL                                                 */}
+      {/* ========================================================================= */}
       {editingModalNote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div
@@ -825,7 +915,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
             aria-modal="true"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
                   <Edit3 className="h-4 w-4" />
                 </div>
@@ -849,7 +939,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
 
             <form onSubmit={handleSaveModalNote} className="mt-4 space-y-4">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Note Title
                 </label>
                 <input
@@ -858,25 +948,28 @@ export const NotesView: React.FC<NotesViewProps> = ({
                   value={modalTitle}
                   onChange={e => setModalTitle(e.target.value)}
                   placeholder="Note title..."
-                  className="mt-1 h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 text-xs sm:text-sm font-semibold text-slate-900 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Notebook
                   </label>
-                  <select
-                    value={modalCategory}
-                    onChange={e => setModalCategory(e.target.value)}
-                    className="mt-1 h-9 w-full rounded-xl border border-slate-200 bg-white px-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  >
-                    {allCategories.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                    <option value="__custom">+ Custom Notebook...</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={modalCategory}
+                      onChange={e => setModalCategory(e.target.value)}
+                      className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-3 pr-7 text-xs font-medium text-slate-800 focus:bg-white focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white appearance-none cursor-pointer"
+                    >
+                      {allCategories.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="__custom">+ Custom Notebook...</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-3 h-3 w-3 text-slate-400" />
+                  </div>
                   {modalCategory === '__custom' && (
                     <input
                       type="text"
@@ -884,13 +977,13 @@ export const NotesView: React.FC<NotesViewProps> = ({
                       placeholder="Notebook name"
                       value={modalCustomCat}
                       onChange={e => setModalCustomCat(e.target.value)}
-                      className="mt-1.5 h-8 w-full rounded-lg border border-indigo-200 px-2.5 text-xs dark:border-indigo-700 dark:bg-slate-800 dark:text-white"
+                      className="mt-1.5 h-8.5 w-full rounded-xl border border-indigo-200 px-3 text-xs dark:border-indigo-700 dark:bg-slate-800 dark:text-white"
                     />
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                     Tags
                   </label>
                   <input
@@ -898,24 +991,24 @@ export const NotesView: React.FC<NotesViewProps> = ({
                     value={modalTags}
                     onChange={e => setModalTags(e.target.value)}
                     placeholder="ideas, plans"
-                    className="mt-1 h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-xs text-slate-900 focus:bg-white focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   />
                 </div>
               </div>
 
               {/* Theme & Pin */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                     Theme Palette
-                  </label>
-                  <div className="mt-1.5 flex items-center gap-2">
+                  </span>
+                  <div className="flex items-center gap-2">
                     {Object.entries(themePalettes).map(([k, t]) => (
                       <button
                         key={k}
                         type="button"
                         onClick={() => setModalColor(k)}
-                        className={`flex h-7 w-7 items-center justify-center rounded-xl border transition-all cursor-pointer ${
+                        className={`flex h-7.5 w-7.5 items-center justify-center rounded-xl border transition-all cursor-pointer ${
                           modalColor === k
                             ? 'border-indigo-600 ring-2 ring-indigo-500/30 scale-105'
                             : 'border-slate-200 dark:border-slate-700 hover:scale-105'
@@ -923,7 +1016,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
                         title={t.label}
                       >
                         <span
-                          className="h-4 w-4 rounded-lg shadow-xs"
+                          className="h-4.5 w-4.5 rounded-lg shadow-xs"
                           style={{ backgroundColor: t.swatch }}
                         />
                       </button>
@@ -931,26 +1024,29 @@ export const NotesView: React.FC<NotesViewProps> = ({
                   </div>
                 </div>
 
-                <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 cursor-pointer pt-2 sm:pt-4">
-                  <input
-                    type="checkbox"
-                    checked={modalPinned}
-                    onChange={e => setModalPinned(e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-0 cursor-pointer"
-                  />
-                  <span>Pin note to top</span>
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setModalPinned(!modalPinned)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer mt-2 sm:mt-0 ${
+                    modalPinned
+                      ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-300 ring-1 ring-amber-400/50'
+                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                  }`}
+                >
+                  <Star className={`h-3 w-3 ${modalPinned ? 'fill-amber-500 text-amber-500' : ''}`} />
+                  <span>{modalPinned ? 'Pinned to top' : 'Pin note to top'}</span>
+                </button>
               </div>
 
               {/* Note Content Writing Canvas */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
                     <Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                     <span>Note Body & Formatting Studio</span>
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
-                    <span>Full Table & Custom Bullets Active</span>
+                  <div className="text-[10px] text-slate-400 font-mono">
+                    Full Table & Custom Bullets Active
                   </div>
                 </div>
                 <NoteRichEditor
@@ -959,14 +1055,14 @@ export const NotesView: React.FC<NotesViewProps> = ({
                     setModalHtml(html);
                     setModalContent(text);
                   }}
-                  placeholder="Edit your note with rich styles, custom bullets, 24+ colors, tables, and paragraph justify..."
+                  placeholder=""
                   minHeight="min-h-[260px]"
                   maxHeight="max-h-[480px]"
                 />
               </div>
 
               {/* Edit Modal Attachments */}
-              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+              <div>
                 <AttachmentUploader
                   attachments={modalAttachments}
                   onChange={setModalAttachments}
@@ -1009,7 +1105,9 @@ export const NotesView: React.FC<NotesViewProps> = ({
         </div>
       )}
 
-      {/* VIEW NOTE MODAL (When clicking a card) */}
+      {/* ========================================================================= */}
+      {/* VIEW NOTE MODAL (When clicking a card)                                   */}
+      {/* ========================================================================= */}
       {viewingNote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div
@@ -1021,7 +1119,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
               <div className="min-w-0 pr-4">
                 <div className="flex items-center gap-2">
                   {viewingNote.pinned && (
-                    <Pin className="h-3.5 w-3.5 text-amber-500 fill-current shrink-0" />
+                    <Star className="h-4 w-4 text-amber-500 fill-amber-500 shrink-0" />
                   )}
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
                     {viewingNote.title}

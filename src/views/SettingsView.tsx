@@ -8,6 +8,7 @@ import {
 import { storage, exportToCsv, exportToDocx, exportToXlsx, exportToPdf, exportToCompleteHtml, generateUUID, createLocalProfile } from '../lib/storage';
 import { AppState, UserProfile } from '../types';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { ComputerFolderSyncCard } from '../components/ComputerFolderSyncCard';
 
 interface SettingsViewProps {
   settings?: AppState;
@@ -738,41 +739,53 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* Tab: Backup & Multi-Format Exports */}
       {activeTab === 'exports' && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Full Atomic Backup */}
-          <div className="lg:col-span-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
-              <Download className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              <h2 className="text-sm font-bold text-slate-900 dark:text-white">Full Atomic Backup (.omlifeos)</h2>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Export an encrypted, comprehensive snapshot of all 40+ IndexedDB stores including all tasks, notes, finances, and journal entries.
-            </p>
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <button
-                type="button"
-                onClick={handleExportBackup}
-                className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 active:scale-98"
-              >
-                <Download className="h-4 w-4" />
-                <span>Export Snapshot</span>
-              </button>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
+          {/* Left Column: Unified Full Atomic Backup & Direct Computer Folder Sync */}
+          <div className="lg:col-span-6 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
+            {/* Top Section: Full Atomic Backup */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
+                <Download className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">Full Atomic Backup (.omlifeos)</h2>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Export an encrypted, comprehensive snapshot of all 40+ IndexedDB stores including all tasks, notes, finances, and journal entries.
+              </p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleExportBackup}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 active:scale-98 cursor-pointer"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Export Snapshot</span>
+                </button>
 
-              <label className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 cursor-pointer active:scale-98">
-                <Upload className="h-4 w-4" />
-                <span>Restore Backup</span>
-                <input
-                  type="file"
-                  accept=".json,.omlifeos"
-                  onChange={handleImportBackup}
-                  className="hidden"
-                />
-              </label>
+                <label className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 cursor-pointer active:scale-98">
+                  <Upload className="h-4 w-4" />
+                  <span>Restore Backup</span>
+                  <input
+                    type="file"
+                    accept=".json,.omlifeos"
+                    onChange={handleImportBackup}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Bottom Section: Direct Computer Folder Sync (Seamlessly Merged) */}
+            <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
+              <ComputerFolderSyncCard
+                onSuccess={onSuccess}
+                onError={onError}
+                isEmbedded={true}
+              />
             </div>
           </div>
 
-          {/* Multi-Format Exports */}
-          <div className="lg:col-span-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
+          {/* Right Column: Native Client-Side Documents */}
+          <div className="lg:col-span-6 rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 space-y-4">
             <h2 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 pb-3 dark:border-slate-800">
               Native Client-Side Documents
             </h2>

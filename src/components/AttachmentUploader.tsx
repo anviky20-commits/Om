@@ -78,27 +78,16 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
   };
 
   return (
-    <div className={`space-y-2 ${className}`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Paperclip className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 truncate">
-            {label}
+    <div className={`space-y-1.5 ${className}`}>
+      <div className="flex items-center justify-between">
+        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+          {label}
+        </label>
+        {attachments.length > 0 && (
+          <span className="text-[10px] text-slate-400 font-mono">
+            {attachments.length}/{maxFiles}
           </span>
-          <span className="text-[10px] text-slate-400 font-medium shrink-0">
-            ({attachments.length}/{maxFiles})
-          </span>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={attachments.length >= maxFiles}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-indigo-300 disabled:opacity-50 cursor-pointer transition-colors shrink-0 shadow-2xs whitespace-nowrap"
-        >
-          <Paperclip className="h-3 w-3 text-indigo-500" />
-          <span>Attach File</span>
-        </button>
+        )}
       </div>
 
       <input
@@ -110,6 +99,18 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
         accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx,.zip"
       />
 
+      <div className="mt-1">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={attachments.length >= maxFiles}
+          className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer transition-colors disabled:opacity-50"
+        >
+          <Paperclip className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+          <span>{attachments.length > 0 ? `+ Add File (${attachments.length}/${maxFiles})` : 'Choose File'}</span>
+        </button>
+      </div>
+
       {/* Attachment previews / badge pills */}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-1">
@@ -118,7 +119,7 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
             return (
               <div
                 key={att.id}
-                className="group relative flex items-center gap-2 rounded-xl border border-slate-200/90 bg-slate-50/80 p-1.5 pr-2 text-xs dark:border-slate-800 dark:bg-slate-800/80 max-w-xs transition-colors"
+                className="group relative flex items-center gap-2 rounded-xl border border-slate-200/90 bg-white dark:border-slate-800 dark:bg-slate-800/90 p-1.5 pr-2 text-xs max-w-xs transition-all shadow-2xs"
               >
                 {isImg ? (
                   <img
@@ -147,7 +148,7 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
                     download={att.name}
                     onClick={e => e.stopPropagation()}
                     title="Download attached file"
-                    className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-slate-200 dark:hover:bg-slate-700"
+                    className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   >
                     <Download className="h-3 w-3" />
                   </a>
@@ -157,7 +158,7 @@ export const AttachmentUploader: React.FC<AttachmentUploaderProps> = ({
                   type="button"
                   onClick={e => handleRemove(att.id, e)}
                   title="Remove attachment"
-                  className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                  className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
                 >
                   <X className="h-3 w-3" />
                 </button>

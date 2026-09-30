@@ -1,11 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
   Bold, Italic, Underline, Strikethrough,
-  List, ListOrdered, Palette, Highlighter,
+  List, Palette, Highlighter,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Indent, Outdent, RemoveFormatting, Table as TableIcon,
   ChevronDown, Plus, Minus, Trash2, Sparkles,
-  Grid, Volume2, Radio
+  Grid, Volume2, Type
 } from 'lucide-react';
 import { TextReaderController, VoiceLanguage, isSpeechSynthesisSupported } from '../lib/voiceService';
 
@@ -111,8 +111,8 @@ const NUMBER_STYLES = [
 export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
   initialHtml = '',
   onChange,
-  placeholder = 'Start writing your note with rich styles, custom bullets, colors, tables...',
-  minHeight = 'min-h-[220px]',
+  placeholder = '',
+  minHeight = 'min-h-[240px]',
   maxHeight = 'max-h-[500px]',
   className = ''
 }) => {
@@ -146,7 +146,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
   // Text Reading State
   const [isEditorSpeaking, setIsEditorSpeaking] = useState(false);
   const [isEditorPaused, setIsEditorPaused] = useState(false);
-  const [editorReaderLang, setEditorReaderLang] = useState<VoiceLanguage>('hi-IN');
+  const [editorReaderLang] = useState<VoiceLanguage>('hi-IN');
   const readerRef = useRef<TextReaderController | null>(null);
 
   // Clean up voice reader on unmount
@@ -439,77 +439,86 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
   };
 
   return (
-    <div className={`relative rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs transition-all focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 ${className}`}>
+    <div className={`relative rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/95 shadow-sm transition-all focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500/80 overflow-hidden ${className}`}>
       {/* ========================================================================= */}
-      {/* UNIFIED SINGLE-BAR RIBBON (Mobile, Tablet, Laptop, Desktop Friendly)       */}
+      {/* REFINED NOTEBOOK TOOLBAR (Sleek, tactile, premium stationery styling)    */}
       {/* ========================================================================= */}
-      <div className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-800/80 px-2 py-1.5 rounded-t-2xl">
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth py-0.5 px-0.5">
-          {/* Paragraph Style & Size */}
-          <select
-            value={activeStyle}
-            onChange={(e) => handleApplyStyle(e.target.value)}
-            className="h-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 px-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer shrink-0"
-            title="Typography Style"
-          >
-            <option value="p">Paragraph</option>
-            <option value="h1">Title (H1)</option>
-            <option value="h2">Heading (H2)</option>
-            <option value="h3">Subhead (H3)</option>
-            <option value="blockquote">Quote Block</option>
-            <option value="pre">Code Monospace</option>
-          </select>
+      <div className="border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-800/50 backdrop-blur-xs px-2.5 py-1.5">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
+          {/* Paragraph Style */}
+          <div className="relative shrink-0">
+            <select
+              value={activeStyle}
+              onChange={(e) => handleApplyStyle(e.target.value)}
+              className="h-7.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 pl-2 pr-6 text-[11px] font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs appearance-none"
+              title="Typography Style"
+            >
+              <option value="p">Paragraph</option>
+              <option value="h1">Heading 1</option>
+              <option value="h2">Heading 2</option>
+              <option value="h3">Heading 3</option>
+              <option value="blockquote">Quote Block</option>
+              <option value="pre">Code Block</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-1.5 top-2.5 h-3 w-3 text-slate-400" />
+          </div>
 
-          <select
-            value={activeSize}
-            onChange={(e) => handleApplySize(e.target.value)}
-            className="h-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 px-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer shrink-0"
-            title="Text Size"
-          >
-            <option value="2">12px</option>
-            <option value="3">14px</option>
-            <option value="4">16px</option>
-            <option value="5">18px</option>
-            <option value="6">24px</option>
-          </select>
+          {/* Text Size */}
+          <div className="relative shrink-0">
+            <select
+              value={activeSize}
+              onChange={(e) => handleApplySize(e.target.value)}
+              className="h-7.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 pl-2 pr-5 text-[11px] font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs appearance-none"
+              title="Text Size"
+            >
+              <option value="2">12px</option>
+              <option value="3">14px</option>
+              <option value="4">16px</option>
+              <option value="5">18px</option>
+              <option value="6">24px</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-1.5 top-2.5 h-3 w-3 text-slate-400" />
+          </div>
 
-          <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
+          <div className="h-4 w-px bg-slate-200 dark:bg-slate-700/70 mx-0.5 shrink-0" />
 
-          {/* Bold, Italic, Underline, Strikethrough */}
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); exec('bold'); }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0 text-slate-700 dark:text-slate-200"
-            title="Bold (Ctrl+B)"
-          >
-            <Bold className="h-4 w-4 stroke-[2.5]" />
-          </button>
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); exec('italic'); }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0 text-slate-700 dark:text-slate-200"
-            title="Italic (Ctrl+I)"
-          >
-            <Italic className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); exec('underline'); }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0 text-slate-700 dark:text-slate-200"
-            title="Underline (Ctrl+U)"
-          >
-            <Underline className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); exec('strikeThrough'); }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0 text-slate-700 dark:text-slate-200"
-            title="Strikethrough"
-          >
-            <Strikethrough className="h-4 w-4" />
-          </button>
+          {/* Inline Formats: Bold, Italic, Underline, Strike */}
+          <div className="flex items-center gap-0.5 bg-white dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200/70 dark:border-slate-700/70 shrink-0 shadow-2xs">
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); exec('bold'); }}
+              className="flex h-6.5 w-6.5 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400"
+              title="Bold (Ctrl+B)"
+            >
+              <Bold className="h-3.5 w-3.5 stroke-[2.5]" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); exec('italic'); }}
+              className="flex h-6.5 w-6.5 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400"
+              title="Italic (Ctrl+I)"
+            >
+              <Italic className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); exec('underline'); }}
+              className="flex h-6.5 w-6.5 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400"
+              title="Underline (Ctrl+U)"
+            >
+              <Underline className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); exec('strikeThrough'); }}
+              className="flex h-6.5 w-6.5 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400"
+              title="Strikethrough"
+            >
+              <Strikethrough className="h-3.5 w-3.5" />
+            </button>
+          </div>
 
-          <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
+          <div className="h-4 w-px bg-slate-200 dark:bg-slate-700/70 mx-0.5 shrink-0" />
 
           {/* Text Color Picker */}
           <div className="relative shrink-0">
@@ -522,31 +531,35 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                 setShowBulletMenu(false);
                 setShowTableMenu(false);
               }}
-              className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer ${showColorPicker ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-200'}`}
+              className={`flex h-7.5 items-center gap-1.5 rounded-lg px-2 text-[11px] font-semibold border transition-all cursor-pointer shadow-2xs ${
+                showColorPicker
+                  ? 'bg-indigo-50 border-indigo-300 text-indigo-700 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-300'
+                  : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60'
+              }`}
               title="Rich Text Color Palette"
             >
-              <Palette className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <Palette className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>Color</span>
-              <ChevronDown className="h-3 w-3 opacity-60" />
+              <ChevronDown className="h-2.5 w-2.5 opacity-60" />
             </button>
 
             {/* Extensive Color Palette Popover */}
             {showColorPicker && (
               <div
-                className="absolute left-0 top-10 z-[60] w-72 max-w-[calc(100vw-32px)] rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xl dark:border-slate-700 dark:bg-slate-800 animate-in fade-in duration-100"
+                className="absolute left-0 top-9 z-[60] w-72 max-w-[calc(100vw-32px)] rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 animate-in fade-in duration-100"
                 onMouseDown={(e) => e.preventDefault()}
               >
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700">
-                  <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
-                    Choose Text Color
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">
+                    Text Colors
                   </span>
-                  <span className="text-[10px] text-slate-400">24+ Palettes</span>
+                  <span className="text-[10px] text-slate-400 font-medium">24+ Palettes</span>
                 </div>
 
-                <div className="mt-2.5 space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                <div className="mt-2.5 space-y-2.5 max-h-56 overflow-y-auto pr-1 no-scrollbar">
                   {COLOR_PALETTES.map((cat) => (
                     <div key={cat.category}>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
                         {cat.category}
                       </div>
                       <div className="grid grid-cols-5 gap-1.5">
@@ -558,7 +571,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                               exec('foreColor', c.value);
                               setShowColorPicker(false);
                             }}
-                            className="group relative flex h-7 items-center justify-center rounded-lg border border-slate-200/80 hover:scale-105 transition-all cursor-pointer shadow-2xs"
+                            className="group relative flex h-7 items-center justify-center rounded-lg border border-slate-200/80 dark:border-slate-700 hover:scale-105 transition-all cursor-pointer shadow-2xs"
                             style={{ backgroundColor: c.value === 'inherit' ? '#ffffff' : c.value }}
                             title={c.name}
                           >
@@ -573,7 +586,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                 </div>
 
                 {/* Custom Hex Color Picker */}
-                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2">
+                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
                     <input
                       type="color"
@@ -586,7 +599,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                       type="text"
                       value={customTextColor}
                       onChange={(e) => setCustomTextColor(e.target.value)}
-                      className="h-7 w-20 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 font-mono text-[10px] uppercase text-slate-800 dark:text-slate-200"
+                      className="h-7 w-20 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 font-mono text-[10px] uppercase text-slate-800 dark:text-slate-200"
                     />
                   </div>
                   <button
@@ -595,7 +608,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                       exec('foreColor', customTextColor);
                       setShowColorPicker(false);
                     }}
-                    className="rounded-lg bg-indigo-600 px-2.5 py-1 text-[11px] font-bold text-white shadow-2xs hover:bg-indigo-500 cursor-pointer"
+                    className="rounded-lg bg-indigo-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-xs hover:bg-indigo-500 cursor-pointer"
                   >
                     Apply
                   </button>
@@ -615,21 +628,25 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                 setShowBulletMenu(false);
                 setShowTableMenu(false);
               }}
-              className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer ${showHighlightPicker ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400' : 'text-slate-700 dark:text-slate-200'}`}
+              className={`flex h-7.5 items-center gap-1.5 rounded-lg px-2 text-[11px] font-semibold border transition-all cursor-pointer shadow-2xs ${
+                showHighlightPicker
+                  ? 'bg-amber-50 border-amber-300 text-amber-800 dark:bg-amber-950/60 dark:border-amber-700 dark:text-amber-300'
+                  : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60'
+              }`}
               title="Highlight Text Background"
             >
-              <Highlighter className="h-4 w-4 text-amber-500" />
+              <Highlighter className="h-3.5 w-3.5 text-amber-500" />
               <span>Highlight</span>
-              <ChevronDown className="h-3 w-3 opacity-60" />
+              <ChevronDown className="h-2.5 w-2.5 opacity-60" />
             </button>
 
             {/* Highlight Palette Popover */}
             {showHighlightPicker && (
               <div
-                className="absolute left-0 top-10 z-[60] w-64 max-w-[calc(100vw-32px)] rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-800 animate-in fade-in duration-100"
+                className="absolute left-0 top-9 z-[60] w-64 max-w-[calc(100vw-32px)] rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900 animate-in fade-in duration-100"
                 onMouseDown={(e) => e.preventDefault()}
               >
-                <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 pb-2 border-b border-slate-100 dark:border-slate-700">
+                <div className="text-[11px] font-bold text-slate-900 dark:text-slate-100 pb-2 border-b border-slate-100 dark:border-slate-800">
                   Text Highlighter
                 </div>
 
@@ -651,7 +668,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                 </div>
 
                 {/* Custom Highlight Picker */}
-                <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <span className="text-[10px] text-slate-400">Custom:</span>
                   <div className="flex items-center gap-1">
                     <input
@@ -666,7 +683,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                         exec('hiliteColor', customHighlightColor);
                         setShowHighlightPicker(false);
                       }}
-                      className="rounded-lg bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-indigo-500 cursor-pointer"
+                      className="rounded-lg bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-indigo-500 cursor-pointer"
                     >
                       Set
                     </button>
@@ -676,7 +693,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
             )}
           </div>
 
-          <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
+          <div className="h-4 w-px bg-slate-200 dark:bg-slate-700/70 mx-0.5 shrink-0" />
 
           {/* Custom Bullets & Numbers Studio */}
           <div className="relative shrink-0">
@@ -689,22 +706,26 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                 setShowHighlightPicker(false);
                 setShowTableMenu(false);
               }}
-              className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer ${showBulletMenu ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-200'}`}
+              className={`flex h-7.5 items-center gap-1.5 rounded-lg px-2 text-[11px] font-semibold border transition-all cursor-pointer shadow-2xs ${
+                showBulletMenu
+                  ? 'bg-indigo-50 border-indigo-300 text-indigo-700 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-300'
+                  : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60'
+              }`}
               title="Custom Bullets & Numbering Studio"
             >
-              <List className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <List className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>Bullets</span>
-              <ChevronDown className="h-3 w-3 opacity-60" />
+              <ChevronDown className="h-2.5 w-2.5 opacity-60" />
             </button>
 
             {/* Custom Bullet / Number Studio Popover */}
             {showBulletMenu && (
               <div
-                className="absolute left-0 top-10 z-[60] w-80 max-w-[calc(100vw-32px)] rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xl dark:border-slate-700 dark:bg-slate-800 animate-in fade-in duration-100"
+                className="absolute left-0 top-9 z-[60] w-80 max-w-[calc(100vw-32px)] rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 animate-in fade-in duration-100"
                 onMouseDown={(e) => e.preventDefault()}
               >
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700">
-                  <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
                     <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
                     <span>Bullet & Number Studio</span>
                   </span>
@@ -713,7 +734,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
 
                 {/* Preset Bullet Icons Grid */}
                 <div className="mt-2.5">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                     Select Bullet Symbol
                   </div>
                   <div className="grid grid-cols-4 gap-1.5">
@@ -722,7 +743,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                         key={b.id}
                         type="button"
                         onClick={() => insertCustomBulletList(b.symbol)}
-                        className="flex items-center gap-1.5 p-1.5 rounded-xl border border-slate-100 dark:border-slate-700 hover:bg-indigo-50 hover:border-indigo-200 dark:hover:bg-slate-700 transition-all cursor-pointer text-left"
+                        className="flex items-center gap-1.5 p-1.5 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-indigo-50 hover:border-indigo-200 dark:hover:bg-slate-800 transition-all cursor-pointer text-left"
                       >
                         <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm leading-none">
                           {b.symbol}
@@ -736,9 +757,9 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                 </div>
 
                 {/* DEFINE YOUR OWN CUSTOM BULLET */}
-                <div className="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80">
-                  <div className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Define Your Own Custom Bullet (Emoji/Symbol):
+                <div className="mt-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
+                  <div className="text-[10px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Custom Bullet Symbol / Emoji:
                   </div>
                   <div className="flex gap-1.5">
                     <input
@@ -747,13 +768,13 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                       placeholder="e.g. 🎯, ⚡, ✦, 👉, ✓"
                       value={customBulletInput}
                       onChange={(e) => setCustomBulletInput(e.target.value)}
-                      className="h-8 flex-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 text-xs text-slate-900 dark:text-white"
+                      className="h-8 flex-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 text-xs text-slate-900 dark:text-white"
                     />
                     <button
                       type="button"
                       disabled={!customBulletInput.trim()}
                       onClick={() => insertCustomBulletList(customBulletInput.trim())}
-                      className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-2xs hover:bg-indigo-500 disabled:opacity-40 cursor-pointer"
+                      className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-40 cursor-pointer"
                     >
                       Insert
                     </button>
@@ -761,8 +782,8 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                 </div>
 
                 {/* NUMBERING STYLES & CUSTOM PREFIX */}
-                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                     Numbering Formats
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -771,7 +792,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                         key={ns.id}
                         type="button"
                         onClick={() => insertCustomNumberedList(ns.type)}
-                        className="flex items-center gap-1.5 p-1.5 rounded-xl border border-slate-100 dark:border-slate-700 hover:bg-indigo-50 dark:hover:bg-slate-700 text-left cursor-pointer"
+                        className="flex items-center gap-1.5 p-1.5 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-800 text-left cursor-pointer"
                       >
                         <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
                           {ns.prefix}
@@ -796,7 +817,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                     <button
                       type="button"
                       onClick={() => insertCustomNumberedList('1', customNumberPrefix)}
-                      className="rounded-lg bg-slate-800 dark:bg-slate-700 px-2 py-1 text-[11px] font-bold text-white hover:bg-slate-900 cursor-pointer"
+                      className="rounded-lg bg-slate-800 dark:bg-slate-700 px-2 py-1 text-[11px] font-semibold text-white hover:bg-slate-900 cursor-pointer"
                     >
                       Add
                     </button>
@@ -806,43 +827,45 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
             )}
           </div>
 
-          <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
+          <div className="h-4 w-px bg-slate-200 dark:bg-slate-700/70 mx-0.5 shrink-0" />
 
-          {/* Alignment: Left, Center, Right, Justify */}
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); exec('justifyLeft'); }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0 text-slate-700 dark:text-slate-200"
-            title="Align Left"
-          >
-            <AlignLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); exec('justifyCenter'); }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0 text-slate-700 dark:text-slate-200"
-            title="Align Center"
-          >
-            <AlignCenter className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); exec('justifyRight'); }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0 text-slate-700 dark:text-slate-200"
-            title="Align Right"
-          >
-            <AlignRight className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); exec('justifyFull'); }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0 text-indigo-600 dark:text-indigo-400 font-bold"
-            title="Paragraph Justify (Ctrl+J)"
-          >
-            <AlignJustify className="h-4 w-4 stroke-[2.5]" />
-          </button>
+          {/* Alignment Controls */}
+          <div className="flex items-center gap-0.5 bg-white dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200/70 dark:border-slate-700/70 shrink-0 shadow-2xs">
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); exec('justifyLeft'); }}
+              className="flex h-6.5 w-6.5 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-slate-700 dark:text-slate-200 hover:text-indigo-600"
+              title="Align Left"
+            >
+              <AlignLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); exec('justifyCenter'); }}
+              className="flex h-6.5 w-6.5 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-slate-700 dark:text-slate-200 hover:text-indigo-600"
+              title="Align Center"
+            >
+              <AlignCenter className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); exec('justifyRight'); }}
+              className="flex h-6.5 w-6.5 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-slate-700 dark:text-slate-200 hover:text-indigo-600"
+              title="Align Right"
+            >
+              <AlignRight className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); exec('justifyFull'); }}
+              className="flex h-6.5 w-6.5 items-center justify-center rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition-colors cursor-pointer text-indigo-600 dark:text-indigo-400 font-bold"
+              title="Justify (Ctrl+J)"
+            >
+              <AlignJustify className="h-3.5 w-3.5 stroke-[2.2]" />
+            </button>
+          </div>
 
-          <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
+          <div className="h-4 w-px bg-slate-200 dark:bg-slate-700/70 mx-0.5 shrink-0" />
 
           {/* Table Insertion */}
           <div className="relative shrink-0">
@@ -855,26 +878,30 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                 setShowHighlightPicker(false);
                 setShowBulletMenu(false);
               }}
-              className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer ${showTableMenu ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-200'}`}
+              className={`flex h-7.5 items-center gap-1.5 rounded-lg px-2 text-[11px] font-semibold border transition-all cursor-pointer shadow-2xs ${
+                showTableMenu
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/60 dark:border-emerald-700 dark:text-emerald-300'
+                  : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60'
+              }`}
               title="Insert Table Grid"
             >
-              <TableIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <TableIcon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Table</span>
-              <ChevronDown className="h-3 w-3 opacity-60" />
+              <ChevronDown className="h-2.5 w-2.5 opacity-60" />
             </button>
 
             {/* Table Dropdown Dialog */}
             {showTableMenu && (
               <div
-                className="absolute left-0 sm:left-auto right-0 sm:right-auto top-10 z-[60] w-72 max-w-[calc(100vw-32px)] rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xl dark:border-slate-700 dark:bg-slate-800 animate-in fade-in duration-100"
+                className="absolute left-0 sm:left-auto right-0 sm:right-auto top-9 z-[60] w-72 max-w-[calc(100vw-32px)] rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900 animate-in fade-in duration-100"
                 onMouseDown={(e) => e.preventDefault()}
               >
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700">
-                  <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <Grid className="h-3.5 w-3.5 text-emerald-600" />
                     <span>Insert Table Grid</span>
                   </span>
-                  <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                  <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold tabular-nums">
                     {tableGridHover.rows} × {tableGridHover.cols}
                   </span>
                 </div>
@@ -890,7 +917,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                             key={c}
                             onMouseEnter={() => setTableGridHover({ rows: r, cols: c })}
                             onClick={() => insertTable(r, c, tableHasHeader)}
-                            className={`h-5 w-5 rounded-md border transition-all cursor-pointer ${isHovered ? 'bg-indigo-500 border-indigo-600' : 'bg-slate-100 border-slate-300 dark:bg-slate-700 dark:border-slate-600'}`}
+                            className={`h-5 w-5 rounded-md border transition-all cursor-pointer ${isHovered ? 'bg-indigo-500 border-indigo-600' : 'bg-slate-100 border-slate-300 dark:bg-slate-800 dark:border-slate-700'}`}
                           />
                         );
                       })}
@@ -911,22 +938,22 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                   <button
                     type="button"
                     onClick={() => insertTable(tableGridHover.rows, tableGridHover.cols, tableHasHeader)}
-                    className="rounded-lg bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-emerald-500 cursor-pointer shadow-2xs"
+                    className="rounded-lg bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 cursor-pointer shadow-xs"
                   >
                     Insert Table
                   </button>
                 </div>
 
                 {/* Table Modification Quick Tools */}
-                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700 space-y-1.5">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                     Active Table Actions
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
                       type="button"
                       onClick={addTableRow}
-                      className="flex items-center justify-center gap-1 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
+                      className="flex items-center justify-center gap-1 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                       title="Add Row to cursor position"
                     >
                       <Plus className="h-3 w-3 text-emerald-600" />
@@ -935,7 +962,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                     <button
                       type="button"
                       onClick={addTableColumn}
-                      className="flex items-center justify-center gap-1 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer"
+                      className="flex items-center justify-center gap-1 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
                       title="Add Column"
                     >
                       <Plus className="h-3 w-3 text-emerald-600" />
@@ -953,7 +980,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                     <button
                       type="button"
                       onClick={deleteTable}
-                      className="flex items-center justify-center gap-1 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/30 text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-100 cursor-pointer"
+                      className="flex items-center justify-center gap-1 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/30 text-[10px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100 cursor-pointer"
                       title="Delete Table"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -965,61 +992,65 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
             )}
           </div>
 
-          <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
+          <div className="h-4 w-px bg-slate-200 dark:bg-slate-700/70 mx-0.5 shrink-0" />
 
           {/* Indent, Outdent, Clear Formatting */}
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); exec('outdent'); }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0 text-slate-700 dark:text-slate-200"
-            title="Decrease Indent"
-          >
-            <Outdent className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); exec('indent'); }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0 text-slate-700 dark:text-slate-200"
-            title="Increase Indent"
-          >
-            <Indent className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onMouseDown={(e) => { e.preventDefault(); exec('removeFormat'); }}
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 transition-colors cursor-pointer shrink-0 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-            title="Clear Formatting"
-          >
-            <RemoveFormatting className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-0.5 bg-white dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200/70 dark:border-slate-700/70 shrink-0 shadow-2xs">
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); exec('outdent'); }}
+              className="flex h-6.5 w-6.5 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-slate-700 dark:text-slate-200"
+              title="Decrease Indent"
+            >
+              <Outdent className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); exec('indent'); }}
+              className="flex h-6.5 w-6.5 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-slate-700 dark:text-slate-200"
+              title="Increase Indent"
+            >
+              <Indent className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); exec('removeFormat'); }}
+              className="flex h-6.5 w-6.5 items-center justify-center rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              title="Clear Formatting"
+            >
+              <RemoveFormatting className="h-3.5 w-3.5" />
+            </button>
+          </div>
 
-          <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
+          <div className="h-4 w-px bg-slate-200 dark:bg-slate-700/70 mx-0.5 shrink-0" />
+
           {/* Text Reading Aloud Button */}
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); toggleEditorReading(); }}
-            className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+            className={`flex h-7.5 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-semibold transition-all cursor-pointer shrink-0 shadow-2xs ${
               isEditorSpeaking
-                ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-400'
-                : 'hover:bg-slate-200/70 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400'
+                ? 'bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-400/50'
+                : 'bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/40'
             }`}
             title={isEditorSpeaking ? 'Stop Reading Aloud' : 'Read Note Aloud (Hindi & English)'}
           >
-            <Volume2 className={`h-4 w-4 ${isEditorSpeaking ? 'animate-bounce' : ''}`} />
-            <span className="hidden sm:inline font-bold">
-              {isEditorSpeaking ? 'Reading...' : 'Read Aloud'}
+            <Volume2 className={`h-3.5 w-3.5 ${isEditorSpeaking ? 'animate-bounce' : ''}`} />
+            <span className="hidden sm:inline">
+              {isEditorSpeaking ? 'Reading...' : 'Listen'}
             </span>
           </button>
         </div>
       </div>
+
       {/* ========================================================================= */}
       {/* LIVE TEXT READING BANNER                                                  */}
       {/* ========================================================================= */}
       {isEditorSpeaking && (
-        <div className="flex items-center justify-between px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950/40 border-b border-indigo-200/80 dark:border-indigo-900/60 text-xs font-semibold text-indigo-800 dark:text-indigo-200 animate-in fade-in select-none">
+        <div className="flex items-center justify-between px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950/50 border-b border-indigo-200/80 dark:border-indigo-900/60 text-xs font-semibold text-indigo-900 dark:text-indigo-200 animate-in fade-in select-none">
           <div className="flex items-center gap-2">
-            <Volume2 className="h-4 w-4 text-indigo-600 animate-bounce" />
-            <span>Reading Note Aloud in {editorReaderLang === 'hi-IN' ? 'Hindi' : 'English'}...</span>
+            <Volume2 className="h-4 w-4 text-indigo-600 animate-bounce shrink-0" />
+            <span>Reading Note Aloud in Hindi & English...</span>
           </div>
           <div className="flex items-center gap-1.5">
             <button
@@ -1033,7 +1064,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                   setIsEditorPaused(true);
                 }
               }}
-              className="px-2.5 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-indigo-200 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 cursor-pointer"
+              className="px-2.5 py-0.5 rounded-md bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 cursor-pointer"
             >
               {isEditorPaused ? 'Resume' : 'Pause'}
             </button>
@@ -1044,7 +1075,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                 setIsEditorSpeaking(false);
                 setIsEditorPaused(false);
               }}
-              className="px-2.5 py-0.5 rounded-md bg-rose-600 text-[10px] font-bold text-white hover:bg-rose-500 cursor-pointer shadow-2xs"
+              className="px-2.5 py-0.5 rounded-md bg-rose-600 text-[10px] font-semibold text-white hover:bg-rose-500 cursor-pointer shadow-xs"
             >
               Stop
             </button>
@@ -1053,7 +1084,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* PROFESSIONAL NOTEBOOK WRITING CANVAS                                      */}
+      {/* NOTEBOOK WRITING CANVAS (Luxurious paper feel, smooth typography)        */}
       {/* ========================================================================= */}
       <div
         ref={editorRef}
@@ -1062,38 +1093,39 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
         onKeyDown={handleKeyDown}
         onBlur={handleEditorInput}
         onClick={closeAllPopovers}
-        className={`p-4 sm:p-5 text-xs sm:text-sm text-slate-900 dark:text-slate-100 focus:outline-none overflow-y-auto leading-relaxed ${minHeight} ${maxHeight}
-          [&_h1]:text-2xl [&_h1]:font-extrabold [&_h1]:tracking-tight [&_h1]:my-3 [&_h1]:text-slate-950 dark:[&_h1]:text-white
+        className={`p-4 sm:p-5 text-xs sm:text-sm text-slate-800 dark:text-slate-100 focus:outline-none overflow-y-auto leading-relaxed ${minHeight} ${maxHeight}
+          [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:my-3 [&_h1]:text-slate-950 dark:[&_h1]:text-white
           [&_h2]:text-xl [&_h2]:font-bold [&_h2]:tracking-tight [&_h2]:my-2.5 [&_h2]:text-slate-900 dark:[&_h2]:text-slate-100
           [&_h3]:text-base [&_h3]:font-bold [&_h3]:my-2 [&_h3]:text-slate-800 dark:[&_h3]:text-slate-200
           [&_p]:my-1.5 [&_p]:leading-relaxed
-          [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2
-          [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2
+          [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2
+          [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
           [&_li]:my-1 [&_li]:leading-normal
-          [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-500 [&_blockquote]:bg-indigo-50/40 dark:[&_blockquote]:bg-indigo-950/20 [&_blockquote]:py-1.5 [&_blockquote]:px-3.5 [&_blockquote]:rounded-r-xl [&_blockquote]:italic [&_blockquote]:my-3 [&_blockquote]:text-slate-700 dark:[&_blockquote]:text-slate-300
-          [&_pre]:bg-slate-900 [&_pre]:text-slate-100 [&_pre]:p-3 [&_pre]:rounded-xl [&_pre]:font-mono [&_pre]:text-xs [&_pre]:my-3 [&_pre]:overflow-x-auto
-          [&_table]:w-full [&_table]:border-collapse [&_table]:my-3 [&_table]:border [&_table]:border-slate-300 dark:[&_table]:border-slate-700 [&_table]:rounded-xl [&_table]:overflow-hidden
-          [&_th]:border [&_th]:border-slate-300 dark:[&_th]:border-slate-700 [&_th]:bg-slate-100 dark:[&_th]:bg-slate-800 [&_th]:p-2.5 [&_th]:font-bold [&_th]:text-left [&_th]:text-xs [&_th]:text-slate-900 dark:[&_th]:text-white
-          [&_td]:border [&_td]:border-slate-300 dark:[&_td]:border-slate-700 [&_td]:p-2.5 [&_td]:min-w-[60px] [&_td]:text-xs
-          [&_tr:nth-child(even)]:bg-slate-50/70 dark:[&_tr:nth-child(even)]:bg-slate-800/40
-          empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 empty:before:pointer-events-none`}
+          [&_blockquote]:border-l-3 [&_blockquote]:border-indigo-500 [&_blockquote]:bg-indigo-50/30 dark:[&_blockquote]:bg-indigo-950/20 [&_blockquote]:py-1.5 [&_blockquote]:px-3.5 [&_blockquote]:rounded-r-lg [&_blockquote]:italic [&_blockquote]:my-3 [&_blockquote]:text-slate-700 dark:[&_blockquote]:text-slate-300
+          [&_pre]:bg-slate-950 [&_pre]:text-slate-100 [&_pre]:p-3.5 [&_pre]:rounded-xl [&_pre]:font-mono [&_pre]:text-xs [&_pre]:my-3 [&_pre]:overflow-x-auto
+          [&_table]:w-full [&_table]:border-collapse [&_table]:my-3 [&_table]:border [&_table]:border-slate-200 dark:[&_table]:border-slate-700 [&_table]:rounded-xl [&_table]:overflow-hidden
+          [&_th]:border [&_th]:border-slate-200 dark:[&_th]:border-slate-700 [&_th]:bg-slate-50 dark:[&_th]:bg-slate-800/80 [&_th]:p-2.5 [&_th]:font-semibold [&_th]:text-left [&_th]:text-xs [&_th]:text-slate-900 dark:[&_th]:text-white
+          [&_td]:border [&_td]:border-slate-200 dark:[&_td]:border-slate-700 [&_td]:p-2.5 [&_td]:min-w-[60px] [&_td]:text-xs
+          [&_tr:nth-child(even)]:bg-slate-50/50 dark:[&_tr:nth-child(even)]:bg-slate-800/30
+          empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400/90 empty:before:pointer-events-none empty:before:italic`}
         data-placeholder={placeholder}
       />
 
       {/* Editor Footer Status Bar */}
-      <div className="flex items-center justify-between px-3.5 py-1.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-800/30 text-[10px] text-slate-400 select-none rounded-b-2xl">
+      <div className="flex items-center justify-between px-3.5 py-1.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-800/30 text-[10px] text-slate-400 select-none">
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400">
+          <span className="inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400">
             <Sparkles className="h-3 w-3" />
-            <span>Unified Canvas</span>
+            <span>Interactive Canvas</span>
           </span>
-          <span>·</span>
-          <span>Justify: <strong>Ctrl+J</strong></span>
+          <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">·</span>
+          <span className="text-slate-500 dark:text-slate-400">Justify: <kbd className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[9px] border border-slate-200 dark:border-slate-700">Ctrl+J</kbd></span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span>{wordCount} words</span>
-          <span>{charCount} chars</span>
+        <div className="flex items-center gap-2.5 font-mono tabular-nums text-slate-500 dark:text-slate-400">
+          <span>{wordCount} {wordCount === 1 ? 'word' : 'words'}</span>
+          <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">·</span>
+          <span>{charCount} {charCount === 1 ? 'char' : 'chars'}</span>
         </div>
       </div>
     </div>

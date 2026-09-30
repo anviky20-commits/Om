@@ -259,7 +259,13 @@ export const JournalView: React.FC<JournalViewProps> = ({
     }
   };
 
-  const filteredEntries = journal.filter(j => {
+  const sortedEntries = [...journal].sort((a, b) => {
+    const d = (b.date || '').localeCompare(a.date || '');
+    if (d !== 0) return d;
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  const filteredEntries = sortedEntries.filter(j => {
     if (selectedMoodFilter !== 'all' && j.mood !== selectedMoodFilter) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -466,7 +472,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
             </div>
 
             {/* Attached Files Section */}
-            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+            <div>
               <AttachmentUploader
                 attachments={attachments}
                 onChange={setAttachments}
@@ -546,7 +552,7 @@ export const JournalView: React.FC<JournalViewProps> = ({
                 No journal reflections found. Record today's entry on the left.
               </div>
             ) : (
-              filteredEntries.slice().reverse().map(j => {
+              filteredEntries.map(j => {
                 const theme = getTheme(j.color);
                 const moodObj = moodOptions.find(m => m.label === j.mood);
                 return (
