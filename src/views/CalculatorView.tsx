@@ -211,6 +211,14 @@ export const CalculatorView: React.FC<CalculatorViewProps> = ({
         </option>
       ));
     }
+    if (cfg.unitGroup === 'FuelEconomy' || cfg.name === 'Fuel Economy') {
+      return [
+        <option key="km_l" value="km_l">Kilometers per Liter (km/L)</option>,
+        <option key="l_100km" value="l_100km">Liters per 100 km (L/100km)</option>,
+        <option key="mpg_us" value="mpg_us">US Miles per Gallon (US MPG)</option>,
+        <option key="mpg_uk" value="mpg_uk">UK Miles per Gallon (UK MPG)</option>
+      ];
+    }
     if (cfg.unitGroup && CALC_UNIT_FACTORS[cfg.unitGroup]) {
       return Object.keys(CALC_UNIT_FACTORS[cfg.unitGroup]).map(u => (
         <option key={u} value={u}>

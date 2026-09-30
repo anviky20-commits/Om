@@ -170,6 +170,12 @@ export const CALC_UNIT_FACTORS: Record<string, Record<string, number>> = {
     KWD: 0.31,
     SGD: 1.34,
     THB: 35.8
+  },
+  FuelEconomy: {
+    km_l: 1,
+    l_100km: 1,
+    mpg_us: 1,
+    mpg_uk: 1
   }
 };
 
@@ -919,15 +925,22 @@ export class CalculatorEngine {
     const v = pos(val);
     let kmPerL = v;
     if (fromUnit === 'l_100km') kmPerL = 100 / v;
-    if (fromUnit === 'mpg_us') kmPerL = v * 0.425144;
-    if (fromUnit === 'mpg_uk') kmPerL = v * 0.354006;
+    if (fromUnit === 'mpg_us') kmPerL = v * 0.425143707;
+    if (fromUnit === 'mpg_uk') kmPerL = v * 0.354006189;
 
     let res = kmPerL;
     if (toUnit === 'l_100km') res = 100 / kmPerL;
-    if (toUnit === 'mpg_us') res = kmPerL / 0.425144;
-    if (toUnit === 'mpg_uk') res = kmPerL / 0.354006;
+    if (toUnit === 'mpg_us') res = kmPerL / 0.425143707;
+    if (toUnit === 'mpg_uk') res = kmPerL / 0.354006189;
 
-    return `${res.toFixed(2)} ${toUnit}`;
+    const unitLabels: Record<string, string> = {
+      km_l: 'km/L',
+      l_100km: 'L/100km',
+      mpg_us: 'US MPG',
+      mpg_uk: 'UK MPG'
+    };
+
+    return `${res.toFixed(2)} ${unitLabels[toUnit] || toUnit}`;
   }
 
   // ===================== TRAVEL =====================

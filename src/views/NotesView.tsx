@@ -642,16 +642,10 @@ export const NotesView: React.FC<NotesViewProps> = ({
             </div>
 
             {/* Note Writing Canvas */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
-                  <Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                  <span>Notebook Canvas</span>
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono">
-                  Rich formatting · Tables · Bullets
-                </div>
-              </div>
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
+                Note Content & Body
+              </label>
               <NoteRichEditor
                 initialHtml={editorHtml}
                 onChange={(html, text) => {
@@ -871,7 +865,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
 
                       {/* Content Preview */}
                       <div 
-                        className="mt-2.5 text-xs text-slate-600 dark:text-slate-300 max-h-36 overflow-hidden line-clamp-4 leading-relaxed [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_blockquote]:italic [&_blockquote]:pl-2 [&_blockquote]:border-l-2 [&_blockquote]:border-indigo-400 [&_table]:w-full [&_table]:border-collapse [&_table]:text-[10px] [&_th]:border [&_th]:border-slate-300 dark:[&_th]:border-slate-700 [&_th]:p-1 [&_td]:border [&_td]:border-slate-300 dark:[&_td]:border-slate-700 [&_td]:p-1"
+                        className="mt-2.5 text-xs text-slate-600 dark:text-slate-300 max-h-36 overflow-hidden line-clamp-4 leading-relaxed om-rich-rendered"
                         dangerouslySetInnerHTML={{ __html: n.html || (n.body ? n.body.replace(/\n/g, '<br/>') : '') }}
                       />
 
@@ -1039,16 +1033,10 @@ export const NotesView: React.FC<NotesViewProps> = ({
               </div>
 
               {/* Note Content Writing Canvas */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
-                    <Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                    <span>Note Body & Formatting Studio</span>
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-mono">
-                    Full Table & Custom Bullets Active
-                  </div>
-                </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
+                  Note Content & Body
+                </label>
                 <NoteRichEditor
                   initialHtml={modalHtml}
                   onChange={(html, text) => {
@@ -1197,7 +1185,7 @@ export const NotesView: React.FC<NotesViewProps> = ({
             <div className="mt-4 space-y-4">
               {/* Content */}
               <div 
-                className="text-xs sm:text-sm leading-relaxed text-slate-800 dark:text-slate-200 prose dark:prose-invert max-w-none [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_li]:my-0.5 [&_h1]:text-xl [&_h1]:font-bold [&_h1]:my-2.5 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:my-1.5 [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-400 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-slate-600 dark:[&_blockquote]:text-slate-300 [&_pre]:bg-slate-100 dark:[&_pre]:bg-slate-800 [&_pre]:p-2.5 [&_pre]:rounded-xl [&_pre]:font-mono [&_pre]:text-xs [&_table]:w-full [&_table]:border-collapse [&_table]:my-3 [&_table]:border [&_table]:border-slate-300 dark:[&_table]:border-slate-700 [&_table]:rounded-xl [&_table]:overflow-hidden [&_th]:border [&_th]:border-slate-300 dark:[&_th]:border-slate-700 [&_th]:bg-slate-100 dark:[&_th]:bg-slate-800 [&_th]:p-2.5 [&_th]:font-bold [&_th]:text-left [&_th]:text-xs [&_td]:border [&_td]:border-slate-300 dark:[&_td]:border-slate-700 [&_td]:p-2.5 [&_td]:text-xs [&_tr:nth-child(even)]:bg-slate-50/70 dark:[&_tr:nth-child(even)]:bg-slate-800/40"
+                className="text-xs sm:text-sm leading-relaxed text-slate-800 dark:text-slate-200 max-w-none om-rich-rendered"
                 dangerouslySetInnerHTML={{ __html: viewingNote.html || (viewingNote.body ? viewingNote.body.replace(/\n/g, '<br/>') : '') }}
               />
 

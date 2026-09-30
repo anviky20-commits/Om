@@ -145,3 +145,152 @@ html.dark[data-transparent="true"] .dark\:bg-slate-800 {
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
+/* ==========================================================================
+   OM PREMIUM RICH TEXT TYPOGRAPHY (Lists, Bullets, Tables, Highlights, Quotes)
+   Guarantees bullet lists, tables, and highlights render luxuriously everywhere
+   ========================================================================== */
+.om-rich-rendered ul,
+[contenteditable].om-rich-rendered ul,
+.rich-text-content ul {
+  list-style-type: disc !important;
+  padding-left: 1.4rem !important;
+  margin-top: 0.45rem !important;
+  margin-bottom: 0.45rem !important;
+}
+
+.om-rich-rendered ol,
+[contenteditable].om-rich-rendered ol,
+.rich-text-content ol {
+  list-style-type: decimal !important;
+  padding-left: 1.4rem !important;
+  margin-top: 0.45rem !important;
+  margin-bottom: 0.45rem !important;
+}
+
+.om-rich-rendered li,
+[contenteditable].om-rich-rendered li,
+.rich-text-content li {
+  display: list-item !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.25rem !important;
+  line-height: 1.6 !important;
+}
+
+.om-rich-rendered table,
+[contenteditable].om-rich-rendered table,
+.rich-text-content table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  margin: 14px 0 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+.om-rich-rendered th,
+[contenteditable].om-rich-rendered th,
+.rich-text-content th {
+  background: rgba(241, 245, 249, 0.95) !important;
+  font-weight: 700 !important;
+  text-align: left !important;
+  padding: 8px 12px !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35) !important;
+  border-right: 1px solid rgba(148, 163, 184, 0.2) !important;
+  font-size: 0.78rem !important;
+  color: #1e293b !important;
+}
+
+.dark .om-rich-rendered th,
+.dark [contenteditable].om-rich-rendered th,
+.dark .rich-text-content th {
+  background: rgba(30, 41, 59, 0.95) !important;
+  color: #f8fafc !important;
+  border-color: rgba(71, 85, 105, 0.6) !important;
+}
+
+.om-rich-rendered td,
+[contenteditable].om-rich-rendered td,
+.rich-text-content td {
+  padding: 8px 12px !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
+  border-right: 1px solid rgba(148, 163, 184, 0.2) !important;
+  font-size: 0.78rem !important;
+  min-width: 55px !important;
+}
+
+.dark .om-rich-rendered td,
+.dark [contenteditable].om-rich-rendered td,
+.dark .rich-text-content td {
+  border-color: rgba(71, 85, 105, 0.4) !important;
+}
+
+.om-rich-rendered tr:last-child td,
+[contenteditable].om-rich-rendered tr:last-child td,
+.rich-text-content tr:last-child td {
+  border-bottom: none !important;
+}
+
+.om-rich-rendered tr td:last-child,
+.om-rich-rendered tr th:last-child,
+[contenteditable].om-rich-rendered tr td:last-child,
+[contenteditable].om-rich-rendered tr th:last-child,
+.rich-text-content tr td:last-child,
+.rich-text-content tr th:last-child {
+  border-right: none !important;
+}
+
+.om-rich-rendered tr:nth-child(even) td,
+[contenteditable].om-rich-rendered tr:nth-child(even) td,
+.rich-text-content tr:nth-child(even) td {
+  background-color: rgba(248, 250, 252, 0.6) !important;
+}
+
+.dark .om-rich-rendered tr:nth-child(even) td,
+.dark [contenteditable].om-rich-rendered tr:nth-child(even) td,
+.dark .rich-text-content tr:nth-child(even) td {
+  background-color: rgba(30, 41, 59, 0.35) !important;
+}
+
+.om-rich-rendered mark,
+[contenteditable].om-rich-rendered mark,
+.rich-text-content mark {
+  padding: 1.5px 5px !important;
+  border-radius: 4px !important;
+  box-decoration-break: clone !important;
+  -webkit-box-decoration-break: clone !important;
+  color: inherit !important;
+  font-weight: 500 !important;
+}
+
+.om-rich-rendered blockquote,
+[contenteditable].om-rich-rendered blockquote,
+.rich-text-content blockquote {
+  border-left: 3.5px solid #6366f1 !important;
+  padding: 8px 14px !important;
+  margin: 10px 0 !important;
+  font-style: italic !important;
+  background: rgba(99, 102, 241, 0.05) !important;
+  border-radius: 0 8px 8px 0 !important;
+}
+
+.dark .om-rich-rendered blockquote,
+.dark [contenteditable].om-rich-rendered blockquote,
+.dark .rich-text-content blockquote {
+  background: rgba(99, 102, 241, 0.12) !important;
+}
+
+.om-rich-rendered pre,
+[contenteditable].om-rich-rendered pre,
+.rich-text-content pre {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  padding: 12px 14px !important;
+  border-radius: 10px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.75rem !important;
+  margin: 10px 0 !important;
+  overflow-x: auto !important;
+}
+

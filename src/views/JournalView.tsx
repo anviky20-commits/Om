@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Calendar, Trash2, Edit3, Bold, Italic, Underline,
-  List, Copy, Check, Search, Volume2
+  Calendar, Trash2, Edit3,
+  Copy, Check, Search, Volume2
 } from 'lucide-react';
 import { JournalEntry } from '../types';
 import { storage, generateUUID } from '../lib/storage';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AttachmentUploader, AttachmentViewer, StoredAttachmentMeta } from '../components/AttachmentUploader';
-import { TextReaderController, VoiceLanguage, isSpeechSynthesisSupported, globalTextReader } from '../lib/voiceService';
+import { globalTextReader } from '../lib/voiceService';
+import { NoteRichEditor } from '../components/NoteRichEditor';
 
 interface JournalViewProps {
   journal: JournalEntry[];
@@ -31,16 +32,13 @@ export const JournalView: React.FC<JournalViewProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [entryToDelete, setEntryToDelete] = useState<JournalEntry | null>(null);
   const [attachments, setAttachments] = useState<StoredAttachmentMeta[]>([]);
-  const editorRef = useRef<HTMLDivElement>(null);
+  const [journalHtml, setJournalHtml] = useState('');
+  const [journalText, setJournalText] = useState('');
   const formRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
-  // Journal Text Reading State
-  const [readerLang, setReaderLang] = useState<VoiceLanguage>('hi-IN');
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  // Journal Text Reading State for cards
   const [speakingEntryId, setSpeakingEntryId] = useState<string | null>(null);
-  const readerRef = useRef<TextReaderController | null>(null);
 
   // Toggle read reflection aloud for individual entry card
   const toggleSpeakEntry = (j: JournalEntry) => {
@@ -59,40 +57,6 @@ export const JournalView: React.FC<JournalViewProps> = ({
           }
         }
       });
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      readerRef.current?.stop();
-    };
-  }, []);
-
-  const toggleJournalReading = () => {
-    if (!isSpeechSynthesisSupported()) {
-      onSuccess('Text reading is not supported on this browser.');
-      return;
-    }
-
-    if (!isSpeaking) {
-      const text = editorRef.current?.innerText || '';
-      if (!text.trim()) {
-        onSuccess('Please write or select a reflection to read aloud.');
-        return;
-      }
-      if (!readerRef.current) readerRef.current = new TextReaderController();
-      readerRef.current.speak(text, {
-        lang: readerLang,
-        onStateChange: (st) => {
-          setIsSpeaking(st.isSpeaking);
-          setIsPaused(st.isPaused);
-        }
-      });
-      setIsSpeaking(true);
-    } else {
-      readerRef.current?.stop();
-      setIsSpeaking(false);
-      setIsPaused(false);
     }
   };
 
@@ -141,14 +105,10 @@ export const JournalView: React.FC<JournalViewProps> = ({
     return themePalettes.sky;
   };
 
-  const handleExec = (cmd: string, val: string | null = null) => {
-    document.execCommand(cmd, false, val || undefined);
-  };
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const html = editorRef.current?.innerHTML || '';
-    const text = editorRef.current?.innerText || '';
+    const html = journalHtml;
+    const text = journalText;
     if (!text.trim() && !title.trim()) return;
 
     const now = Date.now();
@@ -206,9 +166,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
       }
     });
     setAttachments(parsedAtts);
-    if (editorRef.current) {
-      editorRef.current.innerHTML = entry.html || entry.text;
-    }
+    setJournalHtml(entry.html || entry.text);
+    setJournalText(entry.text || '');
 
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     setTimeout(() => {
@@ -254,9 +213,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
     setColorTheme('sky');
     setMood('Productive');
     setAttachments([]);
-    if (editorRef.current) {
-      editorRef.current.innerHTML = '';
-    }
+    setJournalHtml('');
+    setJournalText('');
   };
 
   const sortedEntries = [...journal].sort((a, b) => {
@@ -386,88 +344,19 @@ export const JournalView: React.FC<JournalViewProps> = ({
               </div>
             </div>
 
-            {/* Rich Editor Toolbar with Read Aloud */}
             <div>
-              <div className="flex items-center justify-between">
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  Introspection & Thoughts
-                </label>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  Voice to Text & Reading Active
-                </span>
-              </div>
-              <div className="mt-1 flex flex-wrap items-center gap-1 rounded-t-xl border border-b-0 border-slate-200 bg-slate-50 p-1.5 dark:border-slate-700 dark:bg-slate-800">
-                <button
-                  type="button"
-                  onClick={() => handleExec('bold')}
-                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
-                  title="Bold"
-                >
-                  <Bold className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleExec('italic')}
-                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
-                  title="Italic"
-                >
-                  <Italic className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleExec('underline')}
-                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
-                  title="Underline"
-                >
-                  <Underline className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleExec('insertUnorderedList')}
-                  className="rounded-lg p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
-                  title="Bullet List"
-                >
-                  <List className="h-3.5 w-3.5" />
-                </button>
-
-                <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mx-1 shrink-0" />
-
-                {/* Read Aloud Button */}
-                <button
-                  type="button"
-                  onClick={toggleJournalReading}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
-                    isSpeaking
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400'
-                  }`}
-                  title="Read Reflection Aloud"
-                >
-                  <Volume2 className={`h-3.5 w-3.5 ${isSpeaking ? 'animate-bounce' : ''}`} />
-                  <span>{isSpeaking ? 'Reading...' : 'Read Aloud'}</span>
-                </button>
-              </div>
-              {/* Text Reading Banner */}
-              {isSpeaking && (
-                <div className="flex items-center justify-between px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 border-x border-b border-indigo-200 dark:border-indigo-900/60 text-xs font-semibold text-indigo-800 dark:text-indigo-200 select-none">
-                  <div className="flex items-center gap-1.5">
-                    <Volume2 className="h-3.5 w-3.5 text-indigo-600 animate-bounce" />
-                    <span>Reading reflection aloud...</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={toggleJournalReading}
-                    className="px-2 py-0.5 rounded bg-rose-600 text-[10px] font-bold text-white hover:bg-rose-500 cursor-pointer"
-                  >
-                    Stop
-                  </button>
-                </div>
-              )}
-
-              <div
-                ref={editorRef}
-                contentEditable
-                className="min-h-[140px] max-h-64 overflow-y-auto rounded-b-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white leading-relaxed"
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
+                Introspection & Thoughts
+              </label>
+              <NoteRichEditor
+                initialHtml={journalHtml}
+                onChange={(html, text) => {
+                  setJournalHtml(html);
+                  setJournalText(text);
+                }}
+                placeholder=""
+                minHeight="min-h-[160px]"
+                maxHeight="max-h-[380px]"
               />
             </div>
 
@@ -620,8 +509,8 @@ export const JournalView: React.FC<JournalViewProps> = ({
                     </div>
 
                     <div
-                      className="prose prose-xs mt-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: j.html || j.text }}
+                      className="mt-3 text-xs text-slate-700 dark:text-slate-300 leading-relaxed om-rich-rendered"
+                      dangerouslySetInnerHTML={{ __html: j.html || (j.text ? j.text.replace(/\n/g, '<br/>') : '') }}
                     />
 
                     {/* Attached files indicator / download list */}
