@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Folder, FolderCheck, HardDrive, RefreshCw, AlertCircle
+  Folder, FolderCheck, HardDrive, RefreshCw, AlertCircle, Trash2
 } from 'lucide-react';
 import {
   isFileSystemAccessSupported,
@@ -8,6 +8,7 @@ import {
   connectComputerFolder,
   disconnectComputerFolder,
   syncAllFilesToComputerFolder,
+  cleanConnectedFolderToAllowedOnly,
   FolderSyncMeta
 } from '../lib/computerFolderSync';
 
@@ -36,6 +37,7 @@ export const ComputerFolderSyncCard: React.FC<ComputerFolderSyncCardProps> = ({
   });
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isCleaning, setIsCleaning] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
   const [progressPercent, setProgressPercent] = useState(0);
 
@@ -54,7 +56,7 @@ export const ComputerFolderSyncCard: React.FC<ComputerFolderSyncCardProps> = ({
     try {
       const res = await connectComputerFolder();
       if (res.success) {
-        onSuccess(`Connected to computer folder: "${res.folderName}"! Saving files now...`);
+        onSuccess(`Connected to computer folder: "${res.folderName}"! Saving files...`);
         await loadInfo();
         await executeSync();
       } else if (res.error && res.error !== 'Folder selection was cancelled.') {
@@ -78,7 +80,7 @@ export const ComputerFolderSyncCard: React.FC<ComputerFolderSyncCardProps> = ({
   const executeSync = async () => {
     setIsSyncing(true);
     setProgressPercent(0);
-    setProgressMsg('Removing subfolders & saving to main folder...');
+    setProgressMsg('Purging extra files & saving 3 backup files...');
 
     try {
       const res = await syncAllFilesToComputerFolder((msg, current, total) => {
@@ -87,7 +89,8 @@ export const ComputerFolderSyncCard: React.FC<ComputerFolderSyncCardProps> = ({
       });
 
       if (res.success) {
-        onSuccess(`✓ Saved ${res.fileCount} files directly in "${res.folderName}" (0 subfolders).`);
+        const removedInfo = res.removedFilesCount > 0 ? ` (${res.removedFilesCount} extra items removed)` : '';
+        onSuccess(`✓ Saved 3 essential files in "${res.folderName}"!${removedInfo}`);
         await loadInfo();
       } else {
         if (res.error) {
@@ -101,31 +104,52 @@ export const ComputerFolderSyncCard: React.FC<ComputerFolderSyncCardProps> = ({
     }
   };
 
+  const handleCleanExtraFiles = async () => {
+    setIsCleaning(true);
+    try {
+      const res = await cleanConnectedFolderToAllowedOnly();
+      if (res.success) {
+        onSuccess(
+          res.removedCount > 0
+            ? `✓ Cleaned folder! Permanently removed ${res.removedCount} extra files/folders.`
+            : `✓ Folder is already clean! Only the 3 essential files are present.`
+        );
+        await loadInfo();
+      } else {
+        if (res.error) {
+          onError ? onError(res.error) : alert(res.error);
+        }
+      }
+    } catch (err: any) {
+      onError ? onError(err.message) : alert(err.message);
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
   const content = (
     <div className="space-y-3">
-      {/* Title & Status */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <HardDrive className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-            Direct Computer Folder Backup
-          </h3>
+      {/* Header only shown when not embedded in an existing card */}
+      {!isEmbedded && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <HardDrive className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+              Direct Computer Folder Backup
+            </h3>
+          </div>
+          {folderInfo.isConnected ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Connected
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+              Not connected
+            </span>
+          )}
         </div>
-        {folderInfo.isConnected ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Connected
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-            Not connected
-          </span>
-        )}
-      </div>
-
-      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-        Save all personal sovereign records directly into your chosen computer folder with zero subfolders.
-      </p>
+      )}
 
       {/* Browser Support Warning if needed */}
       {!isSupported && (
@@ -135,19 +159,24 @@ export const ComputerFolderSyncCard: React.FC<ComputerFolderSyncCardProps> = ({
         </div>
       )}
 
-      {/* Compact Folder Controller Strip */}
+      {/* Sleek Folder Controller Strip */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-2xl bg-slate-50/90 p-3 border border-slate-200/80 dark:bg-slate-800/50 dark:border-slate-700/60">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <Folder className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
             <span className="font-mono text-xs font-bold text-slate-900 dark:text-white truncate">
-              {folderInfo.folderName || 'No folder selected'}
+              {folderInfo.folderName || 'No computer folder selected'}
             </span>
+            {folderInfo.isConnected && isEmbedded && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 text-[9px] font-bold text-emerald-700 dark:bg-emerald-950/60 dark:border-emerald-800 dark:text-emerald-400 shrink-0">
+                Connected
+              </span>
+            )}
           </div>
           <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
             {folderInfo.lastBackupAt
-              ? `Last synced: ${new Date(folderInfo.lastBackupAt).toLocaleString()} (${folderInfo.lastFileCount || 0} files)`
-              : '0 subfolders • Direct root storage'}
+              ? `Last synced: ${new Date(folderInfo.lastBackupAt).toLocaleString()} (3 essential files maintained)`
+              : 'Direct Computer Folder Sync (3 files • 0 subfolders)'}
           </div>
         </div>
 
@@ -157,25 +186,39 @@ export const ComputerFolderSyncCard: React.FC<ComputerFolderSyncCardProps> = ({
             <>
               <button
                 type="button"
-                disabled={isSyncing}
+                disabled={isSyncing || isCleaning}
                 onClick={executeSync}
                 className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-indigo-500 active:scale-98 disabled:opacity-50 cursor-pointer"
+                title="Save 3 files and permanently remove all other files and subfolders"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span>{isSyncing ? 'Saving...' : 'Sync Now'}</span>
+                <span>{isSyncing ? 'Saving...' : 'Sync 3 Files'}</span>
               </button>
+
               <button
                 type="button"
-                disabled={isSyncing}
+                disabled={isSyncing || isCleaning}
+                onClick={handleCleanExtraFiles}
+                className="flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50/60 px-2.5 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/50 cursor-pointer disabled:opacity-50"
+                title="Permanently remove all other files & subfolders from this folder immediately"
+              >
+                <Trash2 className={`h-3 w-3 ${isCleaning ? 'animate-spin' : ''}`} />
+                <span>{isCleaning ? 'Cleaning...' : 'Clean Extra Files'}</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isSyncing || isCleaning}
                 onClick={handleSelectFolder}
                 className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer"
                 title="Select a different main folder on your computer"
               >
                 Change
               </button>
+
               <button
                 type="button"
-                disabled={isSyncing}
+                disabled={isSyncing || isCleaning}
                 onClick={handleDisconnect}
                 className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 cursor-pointer"
                 title="Disconnect folder"

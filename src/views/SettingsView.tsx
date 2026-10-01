@@ -506,17 +506,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             {/* Accent Theme Colors */}
-            <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
-              <div className="text-xs font-bold text-slate-900 dark:text-white">Accent Theme Highlight</div>
-              <div className="text-[11px] text-slate-400 mt-0.5">Customizes brand buttons and active focus indicators</div>
-              <div className="mt-2.5 flex items-center gap-2.5">
+            <div className="border-t border-slate-100 pt-4 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">Accent Theme Highlight</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Customizes brand buttons, navigation indicators, and active focus highlights</div>
+                </div>
+                <span
+                  className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold text-white shadow-2xs"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  {accentColor.toUpperCase()}
+                </span>
+              </div>
+
+              {/* 16 Curated Designer Swatches Grid */}
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
                 {[
                   { name: 'Indigo', hex: '#6366f1' },
+                  { name: 'Cobalt', hex: '#2563eb' },
+                  { name: 'Sky', hex: '#0284c7' },
+                  { name: 'Cyan', hex: '#06b6d4' },
+                  { name: 'Teal', hex: '#0d9488' },
                   { name: 'Emerald', hex: '#10b981' },
-                  { name: 'Violet', hex: '#8b5cf6' },
+                  { name: 'Forest', hex: '#15803d' },
+                  { name: 'Lime', hex: '#84cc16' },
                   { name: 'Amber', hex: '#f59e0b' },
+                  { name: 'Orange', hex: '#f97316' },
+                  { name: 'Crimson', hex: '#e11d48' },
                   { name: 'Rose', hex: '#f43f5e' },
-                  { name: 'Sky', hex: '#0284c7' }
+                  { name: 'Fuchsia', hex: '#d946ef' },
+                  { name: 'Purple', hex: '#a855f7' },
+                  { name: 'Violet', hex: '#8b5cf6' },
+                  { name: 'Slate', hex: '#475569' }
                 ].map(acc => (
                   <button
                     key={acc.name}
@@ -530,20 +552,81 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       onSuccess(`${acc.name} theme accent applied`);
                       onRefresh();
                     }}
-                    className="group flex flex-col items-center gap-1 cursor-pointer"
-                    title={acc.name}
+                    className="group flex flex-col items-center gap-1 cursor-pointer p-1 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+                    title={`${acc.name} (${acc.hex})`}
                   >
                     <span
-                      className={`h-7 w-7 rounded-xl shadow-xs transition-transform group-hover:scale-110 flex items-center justify-center text-white text-[10px] ${
-                        accentColor === acc.hex ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-offset-slate-900 scale-105' : ''
+                      className={`h-7 w-7 rounded-xl shadow-xs transition-all group-hover:scale-110 flex items-center justify-center text-white text-[10px] font-bold ${
+                        accentColor.toLowerCase() === acc.hex.toLowerCase()
+                          ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-offset-slate-900 scale-105'
+                          : ''
                       }`}
                       style={{ backgroundColor: acc.hex }}
                     >
-                      {accentColor === acc.hex ? '✓' : ''}
+                      {accentColor.toLowerCase() === acc.hex.toLowerCase() ? '✓' : ''}
                     </span>
-                    <span className="text-[10px] text-slate-400">{acc.name}</span>
+                    <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">{acc.name}</span>
                   </button>
                 ))}
+              </div>
+
+              {/* Custom Hex Accent Row */}
+              <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/60 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-600 dark:text-slate-400 font-medium">Custom Accent:</span>
+                  <label className="relative flex items-center justify-center cursor-pointer">
+                    <input
+                      type="color"
+                      value={accentColor.startsWith('#') ? accentColor : '#6366f1'}
+                      onChange={async (e) => {
+                        const newHex = e.target.value;
+                        setAccentColor(newHex);
+                        document.documentElement.style.setProperty('--color-brand', newHex);
+                        const appSettings = await storage.getSingleton<any>('appSettings') || {};
+                        appSettings.accentColor = newHex;
+                        await storage.setSingleton('appSettings', appSettings);
+                      }}
+                      className="h-6 w-6 rounded-lg border-0 p-0 cursor-pointer overflow-hidden opacity-0 absolute inset-0"
+                      title="Choose custom hex color"
+                    />
+                    <span
+                      className="h-6 w-6 rounded-lg border border-slate-300 dark:border-slate-600 shadow-2xs block transition-transform hover:scale-110"
+                      style={{ backgroundColor: accentColor }}
+                    />
+                  </label>
+                  <input
+                    type="text"
+                    value={accentColor}
+                    onChange={async (e) => {
+                      const newHex = e.target.value;
+                      setAccentColor(newHex);
+                      if (/^#[0-9A-Fa-f]{6}$/.test(newHex)) {
+                        document.documentElement.style.setProperty('--color-brand', newHex);
+                        const appSettings = await storage.getSingleton<any>('appSettings') || {};
+                        appSettings.accentColor = newHex;
+                        await storage.setSingleton('appSettings', appSettings);
+                      }
+                    }}
+                    placeholder="#6366F1"
+                    className="h-6 w-20 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 font-mono text-[11px] uppercase text-slate-900 dark:text-white"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const defaultHex = '#6366f1';
+                    setAccentColor(defaultHex);
+                    document.documentElement.style.setProperty('--color-brand', defaultHex);
+                    const appSettings = await storage.getSingleton<any>('appSettings') || {};
+                    appSettings.accentColor = defaultHex;
+                    await storage.setSingleton('appSettings', appSettings);
+                    onSuccess('Default Indigo accent restored');
+                    onRefresh();
+                  }}
+                  className="text-[11px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium cursor-pointer"
+                >
+                  Reset Default
+                </button>
               </div>
             </div>
 
@@ -774,7 +857,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            {/* Bottom Section: Direct Computer Folder Sync (Seamlessly Merged) */}
+            {/* Direct Computer Folder Sync Strip */}
             <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
               <ComputerFolderSyncCard
                 onSuccess={onSuccess}

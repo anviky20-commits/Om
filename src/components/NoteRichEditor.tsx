@@ -67,6 +67,9 @@ const COLOR_PALETTES = [
   }
 ];
 
+// Flat Unified Color Spectrum
+const FLAT_TEXT_COLORS = COLOR_PALETTES.flatMap(group => group.colors);
+
 // Curated Soft Highlighter Markers
 const HIGHLIGHT_COLORS = [
   { name: 'Sunlight Yellow', value: '#fef08a', label: 'Yellow', bg: '#fef08a', border: '#facc15' },
@@ -1005,6 +1008,9 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
       {/* ========================================================================= */}
       {/* 2. EXPANDED LUXURY STUDIO PANELS (Color, Highlight, Bullets, Table)       */}
       {/* ========================================================================= */}
+      {/* ========================================================================= */}
+      {/* COMPACT & SLEEK ACTIVE STUDIO DRAWER (COLOR, HIGHLIGHT, BULLETS, TABLE)    */}
+      {/* ========================================================================= */}
       {activeStudio && (
         <div
           onMouseDown={(e) => {
@@ -1013,114 +1019,96 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
               e.preventDefault();
             }
           }}
-          className="border-b border-slate-200 dark:border-slate-800 bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-950/50 p-3 sm:p-4 shadow-sm relative z-20 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150"
+          className="border-b border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3 py-2.5 sm:px-4 sm:py-3 shadow-md relative z-20 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-150"
         >
           {/* ===================================================================== */}
           {/* STUDIO 1: TEXT COLOR PALETTE                                         */}
           {/* ===================================================================== */}
           {activeStudio === 'color' && (
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
-                    <Palette className="h-3.5 w-3.5" />
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+                    <Palette className="h-3 w-3" />
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Text Color</h4>
-                    <p className="text-[10px] text-slate-400">Select curated tone or enter custom hex</p>
-                  </div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Text Color</span>
+                  <span className="text-[10px] text-slate-400 hidden sm:inline">• Click tone or hex</span>
                 </div>
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setActiveStudio(null)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 cursor-pointer"
+                  className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 cursor-pointer"
                   title="Close Color Studio"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
 
-              {/* Curated Color Grid - Clean 5-column responsive layout */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                {COLOR_PALETTES.map((group) => (
-                  <div key={group.category} className="space-y-1.5">
-                    <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
-                      {group.category}
-                    </span>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {group.colors.map((c) => (
-                        <button
-                          key={c.name}
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => applyTextColor(c.value)}
-                          className={`group relative flex h-7 w-7 items-center justify-center rounded-lg border hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-2xs ${
-                            c.value === 'inherit'
-                              ? 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'
-                              : 'border-black/10 dark:border-white/10'
-                          }`}
-                          style={c.value !== 'inherit' ? { backgroundColor: c.hex } : undefined}
-                          title={`${c.name} (${c.hex})`}
-                        >
-                          {c.value === 'inherit' && (
-                            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">Auto</span>
-                          )}
-                          <span className="pointer-events-none absolute -bottom-6 left-1/2 -translate-x-1/2 hidden group-hover:flex rounded bg-slate-900 px-1.5 py-0.5 text-[9px] font-semibold text-white whitespace-nowrap shadow-xs z-30">
-                            {c.name}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              {/* Unified Continuous Color Palette Strip */}
+              <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/60">
+                {FLAT_TEXT_COLORS.map((c) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => applyTextColor(c.value)}
+                    className={`relative flex items-center justify-center rounded-lg border transition-all hover:scale-115 active:scale-95 cursor-pointer shadow-2xs ${
+                      c.value === 'inherit'
+                        ? 'h-6.5 px-2 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 text-[10px] font-bold'
+                        : 'h-6.5 w-6.5 border-black/15 dark:border-white/15'
+                    }`}
+                    style={c.value !== 'inherit' ? { backgroundColor: c.hex } : undefined}
+                    title={`${c.name} (${c.value === 'inherit' ? 'Default' : c.hex})`}
+                  >
+                    {c.value === 'inherit' && 'Auto'}
+                  </button>
                 ))}
               </div>
 
-              {/* Custom Hex Color Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-800/40 p-2.5 rounded-xl">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Custom Color:
+              {/* Custom Hex Bar - Compact single row */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    Custom:
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    <label className="relative flex items-center justify-center cursor-pointer">
-                      <input
-                        type="color"
-                        value={customTextColor}
-                        onChange={(e) => setCustomTextColor(e.target.value)}
-                        className="h-7 w-7 rounded-lg border-0 p-0 cursor-pointer overflow-hidden opacity-0 absolute inset-0"
-                        title="Pick custom color"
-                      />
-                      <span
-                        className="h-7 w-7 rounded-lg border border-slate-300 dark:border-slate-600 shadow-2xs block transition-transform hover:scale-105"
-                        style={{ backgroundColor: customTextColor }}
-                      />
-                    </label>
+                  <label className="relative flex items-center justify-center cursor-pointer">
                     <input
-                      type="text"
+                      type="color"
                       value={customTextColor}
                       onChange={(e) => setCustomTextColor(e.target.value)}
-                      placeholder="#4F46E5"
-                      className="h-7 w-22 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 font-mono text-xs uppercase text-slate-900 dark:text-white"
+                      className="h-6 w-6 rounded-md border-0 p-0 cursor-pointer overflow-hidden opacity-0 absolute inset-0"
+                      title="Pick custom color"
                     />
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => applyTextColor(customTextColor)}
-                      className="h-7 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
-                    >
-                      Apply
-                    </button>
-                  </div>
+                    <span
+                      className="h-6 w-6 rounded-md border border-slate-300 dark:border-slate-600 shadow-2xs block transition-transform hover:scale-110"
+                      style={{ backgroundColor: customTextColor }}
+                    />
+                  </label>
+                  <input
+                    type="text"
+                    value={customTextColor}
+                    onChange={(e) => setCustomTextColor(e.target.value)}
+                    placeholder="#4F46E5"
+                    className="h-6 w-20 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 font-mono text-[11px] uppercase text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => applyTextColor(customTextColor)}
+                    className="h-6 px-2.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-[11px] font-semibold text-white shadow-2xs transition-colors cursor-pointer"
+                  >
+                    Apply
+                  </button>
                 </div>
 
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => applyTextColor('inherit')}
-                  className="flex items-center gap-1.5 h-7 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 shadow-2xs transition-colors cursor-pointer"
+                  className="flex items-center gap-1 h-6 px-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 shadow-2xs transition-colors cursor-pointer"
                 >
-                  <RotateCcw className="h-3 w-3 text-slate-400" />
+                  <RotateCcw className="h-2.5 w-2.5 text-slate-400" />
                   <span>Reset to Auto</span>
                 </button>
               </div>
@@ -1131,45 +1119,43 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
           {/* STUDIO 2: PASTEL HIGHLIGHTER                                         */}
           {/* ===================================================================== */}
           {activeStudio === 'highlight' && (
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
-                    <Highlighter className="h-3.5 w-3.5" />
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
+                    <Highlighter className="h-3 w-3" />
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Text Highlighter</h4>
-                    <p className="text-[10px] text-slate-400">Select radiant pastel highlights or custom marker tone</p>
-                  </div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Text Highlighter</span>
+                  <span className="text-[10px] text-slate-400 hidden sm:inline">• Select marker</span>
                 </div>
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setActiveStudio(null)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 cursor-pointer"
+                  className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 cursor-pointer"
                   title="Close Highlighter Studio"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
 
-              {/* Luminous Pastel Highlighter Markers */}
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Compact Pastel Highlighter Chips */}
+              <div className="flex flex-wrap items-center gap-1.5">
                 {HIGHLIGHT_COLORS.map((h) => (
                   <button
                     key={h.name}
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => applyHighlight(h.value)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-2xs shrink-0"
+                    className="inline-flex items-center gap-1.5 h-6 px-2 rounded-md border border-black/10 dark:border-white/10 hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-2xs shrink-0"
                     style={{ backgroundColor: h.bg }}
-                    title={`Highlight with ${h.name}`}
+                    title={`Highlight: ${h.name}`}
                   >
                     <span
-                      className="h-2.5 w-2.5 rounded-full border border-black/20 shrink-0"
+                      className="h-2 w-2 rounded-full border border-black/20 shrink-0"
                       style={{ backgroundColor: h.border }}
                     />
-                    <span className="text-xs font-semibold text-slate-900 whitespace-nowrap">
+                    <span className="text-[11px] font-semibold text-slate-900 whitespace-nowrap">
                       {h.label}
                     </span>
                   </button>
@@ -1177,47 +1163,45 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
               </div>
 
               {/* Custom Highlight & Clear Row */}
-              <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-800/40 p-2.5 rounded-xl">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                    Custom Marker:
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    Custom:
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    <label className="relative flex items-center justify-center cursor-pointer">
-                      <input
-                        type="color"
-                        value={customHighlightColor}
-                        onChange={(e) => setCustomHighlightColor(e.target.value)}
-                        className="h-7 w-7 rounded-lg border-0 p-0 cursor-pointer overflow-hidden opacity-0 absolute inset-0"
-                        title="Pick custom highlight color"
-                      />
-                      <span
-                        className="h-7 w-7 rounded-lg border border-slate-300 dark:border-slate-600 shadow-2xs block transition-transform hover:scale-105"
-                        style={{ backgroundColor: customHighlightColor }}
-                      />
-                    </label>
+                  <label className="relative flex items-center justify-center cursor-pointer">
                     <input
-                      type="text"
+                      type="color"
                       value={customHighlightColor}
                       onChange={(e) => setCustomHighlightColor(e.target.value)}
-                      className="h-7 w-22 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 font-mono text-xs uppercase text-slate-900 dark:text-white"
+                      className="h-6 w-6 rounded-md border-0 p-0 cursor-pointer overflow-hidden opacity-0 absolute inset-0"
+                      title="Pick custom highlight color"
                     />
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => applyHighlight(customHighlightColor)}
-                      className="h-7 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
-                    >
-                      Highlight
-                    </button>
-                  </div>
+                    <span
+                      className="h-6 w-6 rounded-md border border-slate-300 dark:border-slate-600 shadow-2xs block transition-transform hover:scale-110"
+                      style={{ backgroundColor: customHighlightColor }}
+                    />
+                  </label>
+                  <input
+                    type="text"
+                    value={customHighlightColor}
+                    onChange={(e) => setCustomHighlightColor(e.target.value)}
+                    className="h-6 w-20 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 font-mono text-[11px] uppercase text-slate-900 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => applyHighlight(customHighlightColor)}
+                    className="h-6 px-2.5 rounded-md bg-amber-500 hover:bg-amber-600 text-[11px] font-semibold text-white shadow-2xs transition-colors cursor-pointer"
+                  >
+                    Highlight
+                  </button>
                 </div>
 
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => applyHighlight('transparent')}
-                  className="flex items-center gap-1.5 h-7 px-3 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-white dark:bg-slate-800 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 shadow-2xs transition-colors cursor-pointer"
+                  className="flex items-center gap-1 h-6 px-2 rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-slate-800 text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-100 shadow-2xs transition-colors cursor-pointer"
                 >
                   <X className="h-3 w-3" />
                   <span>Clear Highlight</span>
@@ -1230,90 +1214,90 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
           {/* STUDIO 3: BULLETS & NUMBERING                                        */}
           {/* ===================================================================== */}
           {activeStudio === 'bullets' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-950/60 dark:text-violet-400">
-                    <List className="h-3.5 w-3.5" />
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-50 text-violet-600 dark:bg-violet-950/60 dark:text-violet-400">
+                    <List className="h-3 w-3" />
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Bullet & Numbering Studio</h4>
-                    <p className="text-[10px] text-slate-400">Transform text into structured bullet points or sequences</p>
-                  </div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Bullets & Numbering</span>
                 </div>
 
-                {/* Sub tabs */}
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-[11px]">
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setBulletTab('symbols')}
-                    className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                      bulletTab === 'symbols'
-                        ? 'bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-2xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                    }`}
-                  >
-                    Bullet Symbols
-                  </button>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setBulletTab('numbered')}
-                    className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                      bulletTab === 'numbered'
-                        ? 'bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-2xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                    }`}
-                  >
-                    Numbered Sequences
-                  </button>
+                <div className="flex items-center gap-1.5">
+                  {/* Segmented Control */}
+                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-md text-[10px]">
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setBulletTab('symbols')}
+                      className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
+                        bulletTab === 'symbols'
+                          ? 'bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-2xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      }`}
+                    >
+                      Bullet Symbols
+                    </button>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setBulletTab('numbered')}
+                      className={`px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
+                        bulletTab === 'numbered'
+                          ? 'bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-2xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      }`}
+                    >
+                      Numbered Sequences
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setActiveStudio(null)}
-                    className="ml-2 rounded-lg p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
-                    title="Close Studio"
+                    className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 cursor-pointer"
+                    title="Close Bullets Studio"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
 
               {bulletTab === 'symbols' ? (
-                <div className="space-y-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {BULLET_STYLES.map((b) => (
                       <button
                         key={b.id}
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => insertBulletList(b.symbol)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-violet-500 hover:scale-105 transition-all cursor-pointer shadow-2xs shrink-0"
+                        className="inline-flex items-center gap-1.5 h-6.5 px-2 rounded-md border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-violet-500 hover:scale-105 transition-all cursor-pointer shadow-2xs shrink-0"
                         title={`Insert ${b.label}`}
                       >
-                        <span className="flex h-5 w-5 items-center justify-center rounded-md bg-violet-50 dark:bg-violet-950/70 text-violet-600 dark:text-violet-400 font-bold text-sm shrink-0">
+                        <span className="text-violet-600 dark:text-violet-400 font-bold text-xs shrink-0">
                           {b.symbol}
                         </span>
-                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                        <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">
                           {b.label}
                         </span>
                       </button>
                     ))}
                   </div>
 
-                  {/* Custom Bullet Symbol / Emoji */}
-                  <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700">
-                    <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                      Custom Bullet / Emoji:
+                  {/* Custom Bullet Symbol / Emoji Row */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800 text-[11px]">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">
+                      Custom Emoji / Bullet:
                     </span>
                     <input
                       type="text"
                       maxLength={6}
-                      placeholder="e.g. 🎯, 🚀, 🔥, ⚡, 💎"
+                      placeholder="e.g. 🎯, 🚀, 🔥, ⚡"
                       value={customBulletInput}
                       onChange={(e) => setCustomBulletInput(e.target.value)}
-                      className="h-7 w-32 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs text-slate-900 dark:text-white"
+                      className="h-6 w-28 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 text-xs text-slate-900 dark:text-white"
                     />
                     <button
                       type="button"
@@ -1323,53 +1307,53 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                         insertBulletList(customBulletInput.trim());
                         setCustomBulletInput('');
                       }}
-                      className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-2xs hover:bg-violet-500 disabled:opacity-40 cursor-pointer"
+                      className="h-6 px-2 rounded-md bg-violet-600 hover:bg-violet-700 text-[11px] font-semibold text-white shadow-2xs disabled:opacity-40 cursor-pointer"
                     >
-                      Insert Bullet
+                      Insert
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="space-y-2.5">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {NUMBER_STYLES.map((ns) => (
                       <button
                         key={ns.id}
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => insertNumberedList(ns.type)}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-violet-500 hover:scale-105 transition-all cursor-pointer shadow-2xs shrink-0"
+                        className="inline-flex items-center gap-1.5 h-6.5 px-2 rounded-md border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-violet-500 hover:scale-105 transition-all cursor-pointer shadow-2xs shrink-0"
                         title={ns.desc}
                       >
-                        <span className="font-mono text-sm font-bold text-violet-600 dark:text-violet-400">
+                        <span className="font-mono text-xs font-bold text-violet-600 dark:text-violet-400">
                           {ns.label}
                         </span>
-                        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                          {ns.desc}
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                          {ns.desc.split(' ')[0]}
                         </span>
                       </button>
                     ))}
                   </div>
 
                   {/* Custom Number Prefix */}
-                  <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700">
-                    <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                      Custom Prefix:
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800 text-[11px]">
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">
+                      Prefix:
                     </span>
                     <input
                       type="text"
-                      placeholder="e.g. Step, Point, Day"
+                      placeholder="e.g. Step, Point"
                       value={customNumberPrefix}
                       onChange={(e) => setCustomNumberPrefix(e.target.value)}
-                      className="h-7 w-36 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-xs text-slate-900 dark:text-white"
+                      className="h-6 w-28 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-1.5 text-xs text-slate-900 dark:text-white"
                     />
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => insertNumberedList('1', customNumberPrefix)}
-                      className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-2xs hover:bg-violet-500 cursor-pointer"
+                      className="h-6 px-2 rounded-md bg-violet-600 hover:bg-violet-700 text-[11px] font-semibold text-white shadow-2xs cursor-pointer"
                     >
-                      Insert ({customNumberPrefix} 1, {customNumberPrefix} 2...)
+                      Insert ({customNumberPrefix} 1, 2...)
                     </button>
                   </div>
                 </div>
@@ -1381,24 +1365,20 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
           {/* STUDIO 4: TABLE STUDIO & ACTIVE GRID                                 */}
           {/* ===================================================================== */}
           {activeStudio === 'table' && (
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-2">
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
-                    <TableIcon className="h-3.5 w-3.5" />
+                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+                    <TableIcon className="h-3 w-3" />
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">Table Studio</h4>
-                    <p className="text-[10px] text-slate-400">Insert custom grid tables or modify active rows & columns</p>
-                  </div>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white">Table Studio</span>
                   {activeTableLocation ? (
-                    <span className="ml-1 sm:ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-semibold border border-indigo-200/80 dark:border-indigo-800/60">
-                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                      Active: Row {activeTableLocation.row}/{activeTableLocation.totalRows} · Col {activeTableLocation.col}/{activeTableLocation.totalCols}
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[9px] font-semibold border border-emerald-200/80 dark:border-emerald-800/60">
+                      Row {activeTableLocation.row}/{activeTableLocation.totalRows} · Col {activeTableLocation.col}/{activeTableLocation.totalCols}
                     </span>
                   ) : (
-                    <span className="ml-2 text-[10px] text-slate-400 hidden sm:inline">
-                      (Click in a table to edit its cells)
+                    <span className="text-[10px] text-slate-400 hidden sm:inline">
+                      • Click cell in table to edit
                     </span>
                   )}
                 </div>
@@ -1406,84 +1386,88 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setActiveStudio(null)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 cursor-pointer"
+                  className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 cursor-pointer"
                   title="Close Table Studio"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
                 {/* Panel 1: Create & Insert Table */}
-                <div className="p-3.5 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-850 shadow-2xs space-y-3">
+                <div className="p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                      <Plus className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                      <span>Create New Table</span>
+                    <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                      <Plus className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                      <span>Create Grid</span>
                     </span>
-                    <span className="font-mono text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md border border-indigo-100 dark:border-indigo-900/60">
+                    <span className="font-mono text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.2 rounded border border-indigo-100 dark:border-indigo-900/60">
                       {tableGridHover.rows} × {tableGridHover.cols}
                     </span>
                   </div>
 
-                  {/* Quick Presets */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] text-slate-400 mr-0.5">Quick:</span>
-                    {[
-                      { r: 2, c: 2, label: '2×2' },
-                      { r: 3, c: 3, label: '3×3' },
-                      { r: 4, c: 4, label: '4×4' },
-                      { r: 5, c: 3, label: '5×3' }
-                    ].map(p => (
-                      <button
-                        key={p.label}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          setTableGridHover({ rows: p.r, cols: p.c });
-                          insertTable(p.r, p.c, tableHasHeader);
-                        }}
-                        className="px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/40 text-[11px] font-mono text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-                        title={`Quickly insert ${p.label} table`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    {/* 6x6 Smooth Interactive Grid */}
+                    <div className="flex flex-col gap-0.5 items-start">
+                      {[1, 2, 3, 4, 5, 6].map((r) => (
+                        <div key={r} className="flex gap-0.5">
+                          {[1, 2, 3, 4, 5, 6].map((c) => {
+                            const isHovered = r <= tableGridHover.rows && c <= tableGridHover.cols;
+                            return (
+                              <div
+                                key={c}
+                                onMouseEnter={() => setTableGridHover({ rows: r, cols: c })}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => insertTable(r, c, tableHasHeader)}
+                                className={`h-3.5 w-3.5 rounded-xs transition-all cursor-pointer ${
+                                  isHovered
+                                    ? 'bg-indigo-600 border border-indigo-700 shadow-2xs'
+                                    : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                                }`}
+                                title={`${r} × ${c} table`}
+                              />
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
 
-                  {/* 6x6 Smooth Interactive Grid */}
-                  <div className="flex flex-col gap-1 items-start py-0.5">
-                    {[1, 2, 3, 4, 5, 6].map((r) => (
-                      <div key={r} className="flex gap-1">
-                        {[1, 2, 3, 4, 5, 6].map((c) => {
-                          const isHovered = r <= tableGridHover.rows && c <= tableGridHover.cols;
-                          return (
-                            <div
-                              key={c}
-                              onMouseEnter={() => setTableGridHover({ rows: r, cols: c })}
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => insertTable(r, c, tableHasHeader)}
-                              className={`h-5 w-5 rounded transition-all cursor-pointer ${
-                                isHovered
-                                  ? 'bg-indigo-600 border border-indigo-700 shadow-2xs'
-                                  : 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-400'
-                              }`}
-                              title={`${r} × ${c} table`}
-                            />
-                          );
-                        })}
+                    {/* Quick Presets */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] text-slate-400 uppercase font-semibold">Quick:</span>
+                      <div className="grid grid-cols-2 gap-1">
+                        {[
+                          { r: 2, c: 2, label: '2×2' },
+                          { r: 3, c: 3, label: '3×3' },
+                          { r: 4, c: 4, label: '4×4' },
+                          { r: 5, c: 3, label: '5×3' }
+                        ].map(p => (
+                          <button
+                            key={p.label}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setTableGridHover({ rows: p.r, cols: p.c });
+                              insertTable(p.r, p.c, tableHasHeader);
+                            }}
+                            className="px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:bg-white dark:hover:bg-slate-700 text-[10px] font-mono text-slate-700 dark:text-slate-300 transition-colors cursor-pointer text-center"
+                            title={`Insert ${p.label} table`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
 
-                  {/* Table Insertion Controls */}
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+                  {/* Header Row checkbox & Insert Button */}
+                  <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <label className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={tableHasHeader}
                         onChange={(e) => setTableHasHeader(e.target.checked)}
-                        className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer"
+                        className="rounded text-indigo-600 focus:ring-indigo-500 h-3 w-3 cursor-pointer"
                       />
                       <span>Header row</span>
                     </label>
@@ -1492,7 +1476,7 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => insertTable(tableGridHover.rows, tableGridHover.cols, tableHasHeader)}
-                      className="rounded-lg bg-indigo-600 hover:bg-indigo-700 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition-colors cursor-pointer"
+                      className="rounded-md bg-indigo-600 hover:bg-indigo-700 px-2.5 py-1 text-[11px] font-semibold text-white shadow-2xs transition-colors cursor-pointer"
                     >
                       Insert Table
                     </button>
@@ -1500,79 +1484,73 @@ export const NoteRichEditor: React.FC<NoteRichEditorProps> = ({
                 </div>
 
                 {/* Panel 2: Table Modification Controls */}
-                <div className="p-3.5 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-850 shadow-2xs space-y-3 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                        <Columns className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                        <span>Rows & Columns</span>
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        {activeTableLocation ? 'Table selected' : 'No table selected'}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={addTableRow}
-                        className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/60 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                        title="Insert row below active cell"
-                      >
-                        <Plus className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                        <span>Add Row</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={addTableColumn}
-                        className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/60 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                        title="Insert column to the right"
-                      >
-                        <Plus className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                        <span>Add Column</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={deleteTableRow}
-                        className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/60 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                        title="Delete current row"
-                      >
-                        <Minus className="h-3.5 w-3.5 text-rose-500" />
-                        <span>Delete Row</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={deleteTableColumn}
-                        className="flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/60 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                        title="Delete current column"
-                      >
-                        <Minus className="h-3.5 w-3.5 text-rose-500" />
-                        <span>Delete Column</span>
-                      </button>
-                    </div>
+                <div className="p-2.5 rounded-lg border border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                      <Columns className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                      <span>Edit Active Table</span>
+                    </span>
+                    <span className="text-[9px] text-slate-400">
+                      Shortcut: <kbd className="font-mono bg-white dark:bg-slate-800 px-1 py-0.2 rounded border border-slate-200 dark:border-slate-700">Tab</kbd>
+                    </span>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap">
-                    <span className="text-[10px] text-slate-400">
-                      Shortcut: <kbd className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-[9px]">Tab</kbd> next cell
-                    </span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={addTableRow}
+                      className="flex items-center justify-center gap-1 py-1 px-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-colors cursor-pointer shadow-2xs"
+                      title="Insert row below active cell"
+                    >
+                      <Plus className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                      <span>Add Row</span>
+                    </button>
 
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
+                      onClick={addTableColumn}
+                      className="flex items-center justify-center gap-1 py-1 px-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-600 transition-colors cursor-pointer shadow-2xs"
+                      title="Insert column to the right"
+                    >
+                      <Plus className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                      <span>Add Col</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={deleteTableRow}
+                      className="flex items-center justify-center gap-1 py-1 px-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-medium text-slate-700 dark:text-slate-200 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 transition-colors cursor-pointer shadow-2xs"
+                      title="Delete current row"
+                    >
+                      <Minus className="h-3 w-3 text-rose-500" />
+                      <span>Delete Row</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={deleteTableColumn}
+                      className="flex items-center justify-center gap-1 py-1 px-2 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-medium text-slate-700 dark:text-slate-200 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600 transition-colors cursor-pointer shadow-2xs"
+                      title="Delete current column"
+                    >
+                      <Minus className="h-3 w-3 text-rose-500" />
+                      <span>Delete Col</span>
+                    </button>
+                  </div>
+
+                  <div className="pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={deleteTable}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-medium hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-2 py-1 rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-[11px] font-medium hover:bg-rose-100 transition-colors cursor-pointer"
                       title="Remove entire table"
                     >
                       <Trash2 className="h-3 w-3" />
-                      <span>Delete Table</span>
+                      <span>Delete Entire Table</span>
                     </button>
                   </div>
                 </div>
